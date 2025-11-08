@@ -1,0 +1,10 @@
+[package]
+name = "pot80_zk_host"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+sha3 = "0.10"
+
+# Add your ZK-specific dependencies here when implementing

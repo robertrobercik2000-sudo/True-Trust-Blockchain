@@ -1,0 +1,35 @@
+# Rust build artifacts
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wallet files (DO NOT commit!)
+*.bin
+*.wallet
+
+# Secret exports (DO NOT commit!)
+secrets.json
+*_secrets.json
+
+# Backup shards (handle with care!)
+ttshard-*.json
+/backups/
+
+# Test data
+/receipts/
+/filters/
+*.jsonl
+
+# Temporary files
+*.tmp
+*.temp
