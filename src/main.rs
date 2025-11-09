@@ -31,14 +31,42 @@ use x25519_dalek::{PublicKey as X25519Public, StaticSecret as X25519Secret};
 use argon2::{Algorithm, Argon2, Params, Version};
 use dirs::config_dir;
 
-// PQC
-use pqcrypto_falcon::falcon512;
-use pqcrypto_kyber::kyber768 as mlkem;
+// PQC - warunkowa kompilacja
+#[cfg(feature = "pqc")]
+mod pqc_types {
+    pub use pqcrypto_falcon::falcon512;
+    pub use pqcrypto_kyber::kyber768 as mlkem;
+}
+
+#[cfg(not(feature = "pqc"))]
+mod pqc_types {
+    // Placeholder types gdy PQC nie jest dostępne
+    pub struct SecretKey;
+    pub struct PublicKey;
+    impl SecretKey {
+        pub fn from_bytes(_: &[u8]) -> Result<Self, ()> { Err(()) }
+        pub fn as_bytes(&self) -> &[u8] { &[] }
+    }
+    impl PublicKey {
+        pub fn from_bytes(_: &[u8]) -> Result<Self, ()> { Err(()) }
+        pub fn as_bytes(&self) -> &[u8] { &[] }
+    }
+    pub mod falcon512 {
+        pub use super::{SecretKey, PublicKey};
+        pub fn keypair() -> (PublicKey, SecretKey) { (PublicKey, SecretKey) }
+    }
+    pub mod mlkem {
+        pub use super::{SecretKey, PublicKey};
+        pub fn keypair() -> (PublicKey, SecretKey) { (PublicKey, SecretKey) }
+    }
+}
+
+#[cfg(feature = "pqc")]
 use pqcrypto_traits::sign::{PublicKey as PQPublicKey, SecretKey as PQSecretKey};
+#[cfg(feature = "pqc")]
 use pqcrypto_traits::kem::{PublicKey as PQKemPublicKey, SecretKey as PQKemSecretKey};
 
-// Shamir
-use sharks::{Sharks, Share};
+use pqc_types::{falcon512, mlkem};
 
 // Our crypto
 use crate::crypto::kmac as ck;
