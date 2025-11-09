@@ -29,9 +29,10 @@ fn main() {
         panic!("PQClean Falcon sources required. See falcon_seeded/README.md for setup instructions.");
     }
 
+    // ✅ Updated to match actual PQClean Falcon-512 file names
     for f in [
-        "api.c", "codec.c", "common.c", "falcon.c", "fft.c", "fpr.c",
-        "keygen.c", "rng.c", "shake.c", "sign.c", "vrfy.c",
+        "pqclean.c", "codec.c", "common.c", "fft.c", "fpr.c",
+        "keygen.c", "rng.c", "sign.c", "vrfy.c",
     ] {
         let path = base.join(f);
         if path.exists() {

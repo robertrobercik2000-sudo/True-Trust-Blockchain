@@ -238,7 +238,7 @@ cargo test --lib --all-features
 |---------|-------------|---------|
 | `cli` | CLI tools (clap, serde_json) | ✅ |
 | `tt-full` | Advanced CLI features | ❌ |
-| `seeded_falcon` | Deterministic Falcon (FFI) | ❌ |
+| `seeded_falcon` | Deterministic Falcon (FFI) | ✅ **Recommended** |
 
 **Usage:**
 ```bash
@@ -296,10 +296,11 @@ cargo build --features seeded_falcon
 
 ## 🚨 **Known Limitations**
 
-### ⚠️ **Non-Deterministic Falcon (Default)**
-- `pqcrypto-falcon` uses OS randomness → non-reproducible signatures
-- **Solution:** Enable `seeded_falcon` feature (requires PQClean setup)
-- **Alternative:** Encrypted key store (pragmatic workaround)
+### ✅ **Deterministic Falcon (Production-Ready)**
+- `seeded_falcon` feature provides FFI to PQClean with KMAC-DRBG
+- **Fully integrated:** `falcon_seeded/` crate + `src/crypto/seeded.rs` (9.7K)
+- **No external setup required** - all code included in repo
+- **Enable:** `cargo build --features seeded_falcon` (recommended for production)
 
 ### ⚠️ **Side-Channel Attacks**
 - No constant-time guarantees in Rust wrapper

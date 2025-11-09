@@ -11,20 +11,21 @@ autobins = false  # Disable automatic binary target discovery
 name = "quantum_falcon_wallet"
 path = "src/lib.rs"
 
-# Binary targets disabled for now (need API update)
+# ✅ tt_priv_cli v5: Advanced quantum-safe wallet (PRIMARY)
+[[bin]]
+name = "tt_priv_cli"
+path = "src/tt_priv_cli_main.rs"
+required-features = ["tt-full"]
+
+# Basic CLI tools (for testing - optional)
 # [[bin]]
 # name = "qfw"
 # path = "src/main.rs"
 # required-features = ["cli"]
-
+#
 # [[bin]]
 # name = "ttq"
 # path = "src/tt_main.rs"
-# required-features = ["tt-full"]
-
-# [[bin]]
-# name = "tt_priv_cli"
-# path = "src/tt_priv_cli_main.rs"
 # required-features = ["tt-full"]
 
 [dependencies]
@@ -85,10 +86,10 @@ ed25519-dalek = { version = "2.1", optional = true }
 bech32 = { version = "0.11", optional = true }
 
 [features]
-default = ["cli"]
+default = ["cli", "seeded_falcon"]  # ✅ Deterministic Falcon by default
 cli = ["clap", "dirs", "serde_json"]
-tt-full = ["cli", "argon2", "rpassword", "sharks", "ed25519-dalek", "bech32"]
-seeded_falcon = ["falcon_seeded"]  # ✅ NEW: Deterministic Falcon operations
+tt-full = ["cli", "argon2", "rpassword", "sharks", "ed25519-dalek", "bech32", "seeded_falcon"]
+seeded_falcon = ["falcon_seeded"]  # ✅ FFI to PQClean with KMAC-DRBG
 
 [dependencies.falcon_seeded]
 path = "falcon_seeded"
