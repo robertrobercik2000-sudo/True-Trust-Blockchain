@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
 use core::cmp::Ordering;
-use sha3::{Digest, Sha3_512};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // nowa ścieżka: weryfikacja świadka z snapshot.rs (nie rusza starego API)
 use crate::snapshot::SnapshotWitnessExt;
+use crate::crypto_kmac_consensus::kmac256_hash;
 
 /* ===== Q32.32 ===== */
 
@@ -220,41 +220,22 @@ pub struct MerkleProof { pub leaf_index: u64, pub siblings: Vec<[u8; 32]> }
 
 #[inline]
 fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
-    let mut h = Sha3_512::new();
-    h.update(b"WGT.v1");
-    h.update(who);
-    h.update(stake_q.to_le_bytes());
-    h.update(trust_q.to_le_bytes());
-    let out = h.finalize();
-    // Use first 32 bytes of SHA3-512 output
-    let mut r = [0u8; 32];
-    r.copy_from_slice(&out[..32]);
-    r
+    kmac256_hash(b"WGT.v1", &[
+        who,
+        &stake_q.to_le_bytes(),
+        &trust_q.to_le_bytes(),
+    ])
 }
 
 #[inline]
 fn merkle_parent(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha3_512::new();
-    h.update(b"MRK.v1");
-    h.update(a);
-    h.update(b);
-    let out = h.finalize();
-    // Use first 32 bytes of SHA3-512 output
-    let mut r = [0u8; 32];
-    r.copy_from_slice(&out[..32]);
-    r
+    kmac256_hash(b"MRK.v1", &[a, b])
 }
 
 fn merkle_root(leaves: &[[u8; 32]]) -> [u8; 32] {
     if leaves.is_empty() {
         // Special hash for empty tree to avoid collision with [0u8; 32]
-        let mut h = Sha3_512::new();
-        h.update(b"MRK.empty.v1");
-        let out = h.finalize();
-        // Use first 32 bytes of SHA3-512 output
-        let mut r = [0u8; 32];
-        r.copy_from_slice(&out[..32]);
-        return r;
+        return kmac256_hash(b"MRK.empty.v1", &[]);
     }
     let mut layer = leaves.to_vec();
     while layer.len() > 1 {
@@ -340,16 +321,11 @@ impl RandaoBeacon {
     
     #[inline]
     pub fn commit_hash(epoch: u64, who: &NodeId, r: &[u8; 32]) -> [u8; 32] {
-        let mut h = Sha3_512::new();
-        h.update(b"RANDAO.commit.v1");
-        h.update(&epoch.to_le_bytes());
-        h.update(who);
-        h.update(r);
-        let out = h.finalize();
-        // Use first 32 bytes of SHA3-512 output
-        let mut r = [0u8; 32];
-        r.copy_from_slice(&out[..32]);
-        r
+        kmac256_hash(b"RANDAO.commit.v1", &[
+            &epoch.to_le_bytes(),
+            who,
+            r,
+        ])
     }
     
     pub fn commit(&mut self, epoch: u64, who: NodeId, c: [u8; 32]) {
@@ -406,31 +382,17 @@ impl RandaoBeacon {
             Some(e) if !e.finalized => e.seed, // Use seed even if not finalized
             _ => self.prev_beacon,
         };
-        let mut h = Sha3_512::new();
-        h.update(b"RANDAO.slot.v1");
-        h.update(&epoch.to_le_bytes());
-        h.update(&slot.to_le_bytes());
-        h.update(base);
-        let out = h.finalize();
-        // Use first 32 bytes of SHA3-512 output
-        let mut r = [0u8; 32];
-        r.copy_from_slice(&out[..32]);
-        r
+        kmac256_hash(b"RANDAO.slot.v1", &[
+            &epoch.to_le_bytes(),
+            &slot.to_le_bytes(),
+            &base,
+        ])
     }
 }
 
 #[inline]
 fn mix_hash(prev: &[u8; 32], who: &NodeId, r: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha3_512::new();
-    h.update(b"RANDAO.mix.v1");
-    h.update(prev);
-    h.update(who);
-    h.update(r);
-    let out = h.finalize();
-    // Use first 32 bytes of SHA3-512 output
-    let mut r = [0u8; 32];
-    r.copy_from_slice(&out[..32]);
-    r
+    kmac256_hash(b"RANDAO.mix.v1", &[prev, who, r])
 }
 
 /* ===== Sortition (BEACON+MERKLE) ===== */
@@ -448,15 +410,14 @@ pub struct LeaderWitness {
 
 #[inline]
 fn elig_hash(beacon: &[u8; 32], slot: u64, who: &NodeId) -> u64 {
-    let mut h = Sha3_512::new();
-    h.update(b"ELIG.v1");
-    h.update(beacon);
-    h.update(&slot.to_le_bytes());
-    h.update(who);
-    let d = h.finalize();
-    // Use first 8 bytes of SHA3-512 output
+    let hash = kmac256_hash(b"ELIG.v1", &[
+        beacon,
+        &slot.to_le_bytes(),
+        who,
+    ]);
+    // Use first 8 bytes of hash output
     let mut w = [0u8; 8];
-    w.copy_from_slice(&d[..8]);
+    w.copy_from_slice(&hash[..8]);
     u64::from_be_bytes(w)
 }
 
@@ -669,14 +630,11 @@ mod tests {
         assert_eq!(miss.len(), 0); 
         assert_ne!(val, [0u8; 32]);
         let v0 = b.value(e, 0);
-        let mut h = Sha3_512::new();
-        h.update(b"RANDAO.slot.v1"); 
-        h.update(&e.to_le_bytes()); 
-        h.update(&0u64.to_le_bytes()); 
-        h.update(val);
-        let out = h.finalize();
-        let mut exp = [0u8; 32];
-        exp.copy_from_slice(&out[..32]);
+        let exp = kmac256_hash(b"RANDAO.slot.v1", &[
+            &e.to_le_bytes(),
+            &0u64.to_le_bytes(),
+            &val,
+        ]);
         assert_eq!(v0, exp);
     }
 
