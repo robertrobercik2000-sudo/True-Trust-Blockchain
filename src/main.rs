@@ -166,8 +166,8 @@ fn cmd_keygen(name: String, quantum: bool, wallet_dir: &PathBuf) -> anyhow::Resu
     // Display public keys
     if quantum {
         let ctx = QuantumKeySearchCtx::new(wallet.master_seed)?;
-        let falcon_pk = ctx.get_falcon_public_key();
-        let x25519_pk = ctx.get_x25519_public_key();
+        let falcon_pk = ctx.falcon_public_key();
+        let x25519_pk = ctx.x25519_public_key();
         
         println!("\n📋 Public Keys:");
         println!("   Falcon512: {}", hex::encode(&falcon_pk[..32])); // First 32 bytes
@@ -194,8 +194,8 @@ fn cmd_info(name: String, wallet_dir: &PathBuf) -> anyhow::Result<()> {
     
     if wallet.quantum_enabled {
         let ctx = QuantumKeySearchCtx::new(wallet.master_seed)?;
-        let falcon_pk = ctx.get_falcon_public_key();
-        let x25519_pk = ctx.get_x25519_public_key();
+        let falcon_pk = ctx.falcon_public_key();
+        let x25519_pk = ctx.x25519_public_key();
         
         println!("\n🔑 Public Keys:");
         println!("Falcon512 (897 bytes):");
@@ -331,8 +331,8 @@ fn cmd_export(name: String, format: String, wallet_dir: &PathBuf) -> anyhow::Res
     if format == "json" {
         if wallet.quantum_enabled {
             let ctx = QuantumKeySearchCtx::new(wallet.master_seed)?;
-            let falcon_pk = ctx.get_falcon_public_key();
-            let x25519_pk = ctx.get_x25519_public_key();
+            let falcon_pk = ctx.falcon_public_key();
+            let x25519_pk = ctx.x25519_public_key();
             
             let json = serde_json::json!({
                 "wallet": name,
@@ -358,7 +358,7 @@ fn cmd_export(name: String, format: String, wallet_dir: &PathBuf) -> anyhow::Res
         // Hex format
         if wallet.quantum_enabled {
             let ctx = QuantumKeySearchCtx::new(wallet.master_seed)?;
-            let x25519_pk = ctx.get_x25519_public_key();
+            let x25519_pk = ctx.x25519_public_key();
             println!("{}", hex::encode(x25519_pk));
         } else {
             let vsk = X25519StaticSecret::from(wallet.view_secret);

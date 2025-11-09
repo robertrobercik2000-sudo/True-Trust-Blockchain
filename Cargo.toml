@@ -5,25 +5,27 @@ edition = "2021"
 authors = ["Quantum Security Team"]
 description = "Advanced post-quantum wallet with KMAC + Falcon512"
 license = "MIT"
+autobins = false  # Disable automatic binary target discovery
 
 [lib]
 name = "quantum_falcon_wallet"
 path = "src/lib.rs"
 
-[[bin]]
-name = "qfw"
-path = "src/main.rs"
-required-features = ["cli"]
+# Binary targets disabled for now (need API update)
+# [[bin]]
+# name = "qfw"
+# path = "src/main.rs"
+# required-features = ["cli"]
 
-[[bin]]
-name = "ttq"
-path = "src/tt_main.rs"
-required-features = ["tt-full"]
+# [[bin]]
+# name = "ttq"
+# path = "src/tt_main.rs"
+# required-features = ["tt-full"]
 
-[[bin]]
-name = "tt_priv_cli"
-path = "src/tt_priv_cli_main.rs"
-required-features = ["tt-full"]
+# [[bin]]
+# name = "tt_priv_cli"
+# path = "src/tt_priv_cli_main.rs"
+# required-features = ["tt-full"]
 
 [dependencies]
 # Post-quantum cryptography
