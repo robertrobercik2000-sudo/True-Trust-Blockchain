@@ -66,10 +66,15 @@ use pqcrypto_traits::sign::{PublicKey as PQPublicKey, SecretKey as PQSecretKey};
 #[cfg(feature = "pqc")]
 use pqcrypto_traits::kem::{PublicKey as PQKemPublicKey, SecretKey as PQKemSecretKey};
 
+// Shamir
+use sharks::{Sharks, Share};
+
 use pqc_types::{falcon512, mlkem};
 
-// Our crypto
-use crate::crypto::kmac as ck;
+// Our crypto - zaimportuj bezpośrednio
+#[path = "crypto/kmac.rs"]
+mod kmac_module;
+use kmac_module as ck;
 
 /* =========================================================================================
  * CONSTANTS
@@ -230,16 +235,17 @@ impl Keyset {
  * ====================================================================================== */
 
 fn bech32_addr(scan_pk: &X25519Public, spend_pk: &Ed25519Public) -> Result<String> {
-    use bech32::{ToBase32, Variant::Bech32m, encode};
+    use bech32::Hrp;
     let mut payload = Vec::with_capacity(65);
     payload.push(0x01);
     payload.extend_from_slice(scan_pk.as_bytes());
     payload.extend_from_slice(spend_pk.as_bytes());
-    Ok(encode(BECH32_HRP, payload.to_base32(), Bech32m)?)
+    let hrp = Hrp::parse(BECH32_HRP)?;
+    Ok(bech32::encode::<bech32::Bech32m>(hrp, &payload)?)
 }
 
 fn bech32_addr_quantum_short(scan_pk: &X25519Public, spend_pk: &Ed25519Public, falcon_pk: &falcon512::PublicKey, mlkem_pk: &mlkem::PublicKey) -> Result<String> {
-    use bech32::{ToBase32, Variant::Bech32m, encode};
+    use bech32::Hrp;
     let mut h = Shake256::default();
     h.update(scan_pk.as_bytes());
     h.update(spend_pk.as_bytes());
@@ -250,7 +256,8 @@ fn bech32_addr_quantum_short(scan_pk: &X25519Public, spend_pk: &Ed25519Public, f
     let mut payload = Vec::with_capacity(33);
     payload.push(0x03);
     payload.extend_from_slice(&d);
-    Ok(encode("ttq", payload.to_base32(), Bech32m)?)
+    let hrp = Hrp::parse("ttq")?;
+    Ok(bech32::encode::<bech32::Bech32m>(hrp, &payload)?)
 }
 
 /* =========================================================================================
@@ -608,7 +615,7 @@ fn seal_share(wallet_id: [u8;16], idx: u8, m: u8, n: u8, share: &[u8], salt32: [
 
 fn shards_create(master32: [u8;32], wallet_id: [u8;16], m: u8, n: u8, pw_opt: Option<String>) -> Result<Vec<ShardFile>> {
     ensure!(m>=2 && n>=m && n<=8, "m-of-n out of range");
-    let sharks = Sharks(m as usize);
+    let sharks = Sharks(m);
     let dealer = sharks.dealer(&master32);
     let shares: Vec<Share> = dealer.take(n as usize).collect();
 
@@ -677,10 +684,16 @@ fn shards_recover(paths: &[PathBuf]) -> Result<[u8;32]> {
     }
 
     // Recover secret
-    let sharks = Sharks(m as usize);
+    let sharks = Sharks(m);
     let shares_iter = rec.into_iter()
-        .map(|(i, bytes)| Share::new(i, &bytes));
-    let secret = sharks.recover(shares_iter)
+        .map(|(i, bytes)| {
+            Share::try_from(bytes.as_slice())
+                .map(|sh| (i, sh))
+                .map_err(|e| anyhow!("share parse error: {}", e))
+        });
+    let shares_vec: Result<Vec<_>> = shares_iter.collect();
+    let shares_vec = shares_vec?;
+    let secret = sharks.recover(shares_vec.iter().map(|(_, sh)| sh))
         .map_err(|e| anyhow!("sharks recover: {}", e))?;
     
     let mut out=[0u8;32]; 

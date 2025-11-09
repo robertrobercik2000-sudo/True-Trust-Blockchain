@@ -24,24 +24,24 @@ hex = "0.4"
 bincode = "1.3"
 sharks = "0.5"
 sha3 = "0.10"  # Used for KMAC256 (SHAKE256) and quantum addresses
+serde_json = "1.0"
 
 [features]
 default = []
-pqc = []  # Włącz PQC gdy dostępna nowsza wersja Cargo
+pqc = ["pqcrypto-falcon", "pqcrypto-kyber", "pqcrypto-traits"]
 
-# PQC dependencies - wymagają nowszej wersji Cargo (edition2024)
-# Odkomentuj gdy zaktualizujesz Cargo/Rust
-# [dependencies.pqcrypto-falcon]
-# version = "0.3"
-# optional = true
+# PQC dependencies - teraz dostępne z nightly Rust
+[dependencies.pqcrypto-falcon]
+version = "0.3"
+optional = true
 
-# [dependencies.pqcrypto-kyber]
-# version = "0.3"
-# optional = true
+[dependencies.pqcrypto-kyber]
+version = "0.3"
+optional = true
 
-# [dependencies.pqcrypto-traits]
-# version = "0.3"
-# optional = true
+[dependencies.pqcrypto-traits]
+version = "0.3"
+optional = true
 
 [profile.release]
 opt-level = 3
