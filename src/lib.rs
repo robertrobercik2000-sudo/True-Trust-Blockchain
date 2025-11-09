@@ -7,6 +7,8 @@
 pub mod crypto;
 pub mod crypto_kmac;
 pub mod keysearch;
+pub mod consensus;
+pub mod snapshot;
 
 // Re-export main types
 pub use crypto::{
@@ -23,6 +25,26 @@ pub use keysearch::{
     DecodedHint,
     KeySearchCtx,
     AadMode,
+};
+
+pub use consensus::{
+    Q, ONE_Q, NodeId, StakeQ,
+    TrustParams, TrustState,
+    Registry, RegEntry,
+    EpochSnapshot, MerkleProof,
+    RandaoBeacon, RandaoEpoch,
+    LeaderWitness, PotParams,
+    q_from_ratio, q_from_basis_points,
+    verify_leader_and_update_trust,
+    verify_leader_with_witness,
+    detect_equivocation,
+    slash_equivocation,
+    finalize_epoch_and_slash,
+};
+
+pub use snapshot::{
+    WeightWitnessV1,
+    SnapshotWitnessExt,
 };
 
 /// Library version

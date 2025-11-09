@@ -167,7 +167,7 @@ impl EpochSnapshot {
 pub struct MerkleProof { pub leaf_index: u64, pub siblings: Vec<[u8; 32]> }
 
 #[inline]
-fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
+pub fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update(b"WGT.v1");
     h.update(who);
