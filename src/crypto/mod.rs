@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 pub mod kmac;
+pub mod kmac_drbg;          // ✅ NEW: KMAC-based DRBG (no_std, RngCore, CryptoRng)
 pub mod kmac_falcon_integration;
 pub mod kmac_mlkem_integration;
 pub mod hint_transcript;    // ✅ NEW: Transcript + AEAD helpers

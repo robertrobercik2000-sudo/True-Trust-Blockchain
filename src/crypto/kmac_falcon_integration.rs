@@ -159,16 +159,52 @@ impl FalconKeyManager {
     }
     
     /// Derive Falcon keypair for specific epoch
+    ///
+    /// ⚠️ TODO(PROD): Deterministic Falcon Key Generation
+    ///
+    /// Current `falcon512::keypair()` uses OS randomness, which means:
+    /// - Keys are non-deterministic (cannot recover from seed alone)
+    /// - HD wallet paradigm broken (cannot derive historical epoch keys)
+    /// - Backup requires storing encrypted keys, not just master seed
+    ///
+    /// **Recommended Solution:**
+    /// Use KMAC-DRBG for deterministic keygen:
+    ///
+    /// ```rust
+    /// use crate::crypto::kmac_drbg::KmacDrbg;
+    ///
+    /// // 1. Derive seed for this epoch
+    /// let mut input = Vec::with_capacity(40);
+    /// input.extend_from_slice(seed32);
+    /// input.extend_from_slice(&epoch.to_le_bytes());
+    /// let epoch_seed = kmac256_derive_key(&input, b"FALCON/keygen", b"v1");
+    ///
+    /// // 2. Create deterministic DRBG
+    /// let mut drbg = KmacDrbg::from_key(epoch_seed, b"FALCON/keygen.v1");
+    ///
+    /// // 3. Generate keypair with deterministic RNG
+    /// // ⚠️ BLOCKED: pqcrypto-falcon v0.3 does NOT accept external RNG!
+    /// // Requires:
+    /// //   - Fork pqcrypto-falcon to add RNG parameter
+    /// //   - OR use alternative Falcon library with RNG support
+    /// //   - OR implement encrypted key store (pragmatic workaround)
+    /// //
+    /// // Target API:
+    /// // let (sk, pk) = falcon512::keypair_from_rng(&mut drbg);
+    /// ```
+    ///
+    /// **Pragmatic Workaround (Current):**
+    /// Use encrypted key store (see FALCON_KEYGEN_NOTES.md, Option 2)
     pub fn derive_epoch_keypair(&self, epoch: u64) -> Result<(FalconSecretKey, FalconPublicKey), FalconError> {
+        // Current Implementation (Non-Deterministic)
         let mut input = Vec::with_capacity(32 + 8);
         input.extend_from_slice(&*self.master_seed);
         input.extend_from_slice(&epoch.to_le_bytes());
         
-        let seed = kmac256_derive_key(&input, b"FALCON_EPOCH_SEED", b"keygen");
+        let _seed = kmac256_derive_key(&input, b"FALCON_EPOCH_SEED", b"keygen");
+        // ^^^ Seed derived but NOT used (library limitation)
         
-        // Falcon keygen is deterministic given seed
-        // TODO: Use proper seeded keygen when available
-        // For now, using standard keygen (non-deterministic)
+        // ⚠️ NON-DETERMINISTIC: Uses OS randomness
         let (pk, sk) = falcon512::keypair();
         
         Ok((sk, pk))
@@ -377,6 +413,53 @@ impl QuantumKeySearchCtx {
         );
         
         // 5. Sign transcript with Falcon (identity key)
+        //
+        // ⚠️ TODO(PROD): Deterministic Falcon Signing
+        //
+        // Current `falcon512::sign()` uses OS randomness (/dev/urandom), which means:
+        // - Signatures are non-reproducible (same message → different signature each time)
+        // - Cannot audit signing process (no deterministic test vectors)
+        // - Difficult to use in HSM/SGX environments
+        //
+        // **Recommended Solution:**
+        // Use KMAC-DRBG for deterministic coins:
+        //
+        // ```rust
+        // use crate::crypto::kmac_drbg::KmacDrbg;
+        //
+        // // 1. Derive PRF key from Falcon secret key
+        // let sk_prf = kmac256_derive_key(
+        //     <FalconSecretKey as PQSignSecretKey>::as_bytes(&self.falcon_identity.0),
+        //     b"FALCON/sk-prf",
+        //     b"v1"
+        // );
+        //
+        // 2. Personalization = domain + transcript hash
+        // let mut pers = b"FALCON/coins".to_vec();
+        // let tr_tag = kmac256_derive_key(&tr, b"coins/domain", b"v1");
+        // pers.extend_from_slice(&tr_tag[..16]);
+        //
+        // // 3. Create deterministic DRBG
+        // let mut drbg = KmacDrbg::new(&sk_prf, &pers);
+        //
+        // // 4. Sign with deterministic RNG
+        // // ⚠️ BLOCKED: pqcrypto-falcon v0.3 does NOT accept external RNG!
+        // // Requires:
+        // //   - Fork pqcrypto-falcon to add RNG parameter
+        // //   - OR use alternative Falcon library (falcon-rust?)
+        // //   - OR patch upstream to add `sign_with_rng()` API
+        // //
+        // // Target API:
+        // // let sm = falcon512::sign_with_rng(&tr, &self.falcon_identity.0, &mut drbg);
+        // ```
+        //
+        // **Benefits of Deterministic Signing:**
+        // - Reproducible signatures (audit-friendly)
+        // - HSM/SGX compatible (no /dev/urandom dependency)
+        // - Privacy-preserving (coins derived from transcript, no leakage)
+        // - Testable (known test vectors)
+        //
+        // **Current Implementation (Non-Deterministic):**
         let sm = falcon512::sign(&tr, &self.falcon_identity.0);
         let falcon_signed_msg = <FalconSignedMessage as PQSignedMessage>::as_bytes(&sm).to_vec();
         
