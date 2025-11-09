@@ -15,6 +15,11 @@ name = "qfw"
 path = "src/main.rs"
 required-features = ["cli"]
 
+[[bin]]
+name = "ttq"
+path = "src/tt_main.rs"
+required-features = ["tt-full"]
+
 [dependencies]
 # Post-quantum cryptography
 pqcrypto-falcon = "0.3"
@@ -59,9 +64,18 @@ clap = { version = "4.5", features = ["derive"], optional = true }
 dirs = { version = "5.0", optional = true }
 serde_json = { version = "1.0", optional = true }
 
+# TT Wallet Integration (for full CLI)
+argon2 = { version = "0.4", optional = true }  # Fix: 0.5 needs edition2024
+base64ct = "=1.6.0"  # Pin to avoid edition2024 requirement
+rpassword = { version = "7.3", optional = true }
+sharks = { version = "0.5", optional = true }
+ed25519-dalek = { version = "2.1", optional = true }
+bech32 = { version = "0.11", optional = true }
+
 [features]
 default = ["cli"]
 cli = ["clap", "dirs", "serde_json"]
+tt-full = ["cli", "argon2", "rpassword", "sharks", "ed25519-dalek", "bech32"]
 
 [profile.release]
 opt-level = 3

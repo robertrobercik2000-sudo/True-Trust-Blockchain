@@ -10,6 +10,12 @@ pub mod keysearch;
 pub mod consensus;
 pub mod snapshot;
 
+#[cfg(feature = "tt-full")]
+pub mod tt_quantum_wallet;  // ✅ NOWY: Quantum wallet integration
+
+#[cfg(feature = "tt-full")]
+pub mod tt_cli;  // ✅ NOWY: Full CLI
+
 // Re-export main types
 pub use crypto::{
     QuantumKeySearchCtx,
@@ -45,6 +51,16 @@ pub use consensus::{
 pub use snapshot::{
     WeightWitnessV1,
     SnapshotWitnessExt,
+};
+
+#[cfg(feature = "tt-full")]
+pub use tt_quantum_wallet::{
+    Keyset as QuantumKeyset,
+    WalletFile as QuantumWalletFile,
+    WalletSecretPayloadV3,
+    create_wallet_v3,
+    bech32_addr,
+    bech32_addr_quantum,
 };
 
 /// Library version
