@@ -474,7 +474,7 @@ fn print_hits(hits: &[ScanHit]) {
             h.filter_tag16,
             h.out_idx,
             hex::encode(h.enc_hint32),
-            hex::encode(h.note_commit_point),
+            hex::encode(&h.note_commit_point),
         );
     }
 }

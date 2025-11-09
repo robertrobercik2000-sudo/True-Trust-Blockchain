@@ -1,6 +1,10 @@
 // Placeholder implementation for pot80_zk_host
 // Replace this with actual implementation
 
+// Consensus modules
+pub mod consensus;
+pub mod snapshot;
+
 pub mod crypto_kmac {
     use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
     
@@ -107,6 +111,8 @@ pub mod scanner {
     use anyhow::{Result, bail};
     use super::zk::Claim;
     use super::keyindex::KeyIndex;
+    
+    #[allow(dead_code)]
     
     pub struct ScanHit {
         pub filter_tag16: u16,
