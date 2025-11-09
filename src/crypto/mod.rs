@@ -10,12 +10,16 @@
 pub mod kmac;
 pub mod kmac_drbg;                    // KMAC-based DRBG (no_std, RngCore, CryptoRng)
 pub mod falcon_ops;                   // Unified Falcon operations (trait-based)
+pub mod hints;                        // Unified hint scanner trait hierarchy
 pub mod kmac_falcon_integration;      // Main quantum-safe implementation
 
 #[cfg(feature = "seeded_falcon")]
 pub mod seeded;                       // Deterministic Falcon via KMAC-DRBG + FFI
 
 pub use kmac::{kmac256_derive_key, kmac256_xof_fill, kmac256_xof};
+
+// Hint scanner trait API
+pub use hints::{HintScanner, PublicKeys, ScanResult, HintType};
 
 // Main quantum-safe API (Falcon=signatures, ML-KEM=KEX, XChaCha=AEAD)
 pub use kmac_falcon_integration::{
