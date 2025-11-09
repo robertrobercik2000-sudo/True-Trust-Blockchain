@@ -14,6 +14,9 @@ pub mod kmac_mlkem_integration;
 pub mod hint_transcript;    // ✅ NEW: Transcript + AEAD helpers
 pub mod quantum_hint_v2;    // ✅ NEW: CORRECTED hint implementation
 
+#[cfg(feature = "seeded_falcon")]
+pub mod seeded;             // ✅ NEW: Deterministic Falcon via KMAC-DRBG + FFI
+
 pub use kmac::{kmac256_derive_key, kmac256_xof_fill, kmac256_xof};
 
 // ✅ Corrected Falcon implementation (Falcon=sig, ML-KEM=KEX, XChaCha=AEAD)
