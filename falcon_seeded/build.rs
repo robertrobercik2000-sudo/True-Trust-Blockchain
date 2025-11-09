@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-changed=c/");
@@ -42,11 +42,21 @@ fn main() {
         }
     }
 
+    // Add common/ for fips202.h and SHAKE3
+    let common_path = Path::new("pqclean/common");
+    for f in ["fips202.c", "sp800-185.c"] {
+        let path = common_path.join(f);
+        if path.exists() {
+            cc.file(&path);
+        }
+    }
+
     // Disable built-in randombytes.c from Falcon and replace with ours
     cc.define("PQCLEAN_FALCON512_CLEAN_NAMESPACE", None);
 
     cc.include(&base);
     cc.include("c");
+    cc.include("pqclean/common");  // ✅ NEW: Include common for fips202.h
     cc.flag_if_supported("-O3");
     cc.flag_if_supported("-march=native");
     cc.flag_if_supported("-fomit-frame-pointer");

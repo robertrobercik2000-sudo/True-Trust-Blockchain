@@ -42,7 +42,8 @@
 //! assert!(verify(&pk, b"message", &signature));
 //! ```
 
-#![forbid(unsafe_code)]
+// NOTE: This crate contains necessary `unsafe` code for FFI to PQClean C implementation.
+// All unsafe blocks are carefully reviewed and confined to FFI boundaries.
 #![warn(missing_docs)]
 
 use libc::{c_int, size_t};

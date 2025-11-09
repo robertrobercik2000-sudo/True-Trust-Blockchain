@@ -5,7 +5,7 @@
 #![warn(missing_docs)]
 
 pub mod crypto;
-pub mod crypto_kmac;
+// Removed: crypto_kmac (consolidated into crypto::kmac)
 pub mod keysearch;
 pub mod consensus;
 pub mod snapshot;

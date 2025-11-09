@@ -60,6 +60,21 @@ pub fn kmac256_tag(key: &[u8], label: &[u8], message: &[u8]) -> [u8; 32] {
     out
 }
 
+/// SHAKE256 hash (32 bytes output) for multiple inputs
+/// 
+/// Used by keysearch for commitment verification
+pub fn shake256_32(inputs: &[&[u8]]) -> [u8; 32] {
+    let mut hasher = Shake256::default();
+    Update::update(&mut hasher, b"SHAKE256_32");
+    for input in inputs {
+        Update::update(&mut hasher, input);
+    }
+    let mut reader = hasher.finalize_xof();
+    let mut out = [0u8; 32];
+    XofReader::read(&mut reader, &mut out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

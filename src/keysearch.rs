@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)]
 
-use crate::crypto_kmac::{kmac256_xof_fill, shake256_32};
+use crate::crypto::kmac::{kmac256_xof_fill, shake256_32};
 use aes_gcm::{aead::{Aead, KeyInit}, Aes256Gcm, Nonce};
 use rand::rngs::OsRng;
 use rand::RngCore;

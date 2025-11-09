@@ -23,6 +23,11 @@ void randombytes(uint8_t* out, size_t outlen) {
     }
 }
 
+// PQClean namespace variant (required by newer pqclean.c)
+void PQCLEAN_randombytes(uint8_t* out, size_t outlen) {
+    randombytes(out, outlen);  // Forward to our implementation
+}
+
 // Set pointer to byte-filling function (provided from Rust)
 void tt_set_randombytes(void (*fill_fn)(uint8_t*, size_t)) {
     tls_fill = fill_fn;

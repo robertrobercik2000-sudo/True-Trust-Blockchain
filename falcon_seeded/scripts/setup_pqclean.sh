@@ -21,6 +21,10 @@ mkdir -p "$FALCON_DIR"
 echo "📋 Copying Falcon-512 sources..."
 cp -r "$SCRIPT_DIR/../pqclean_tmp/crypto_sign/falcon-512/clean" "$FALCON_DIR/"
 
+# Copy common/ for fips202.h and SHAKE3
+echo "📋 Copying PQClean common files (fips202, SHAKE3)..."
+cp -r "$SCRIPT_DIR/../pqclean_tmp/common" "$SCRIPT_DIR/../pqclean/"
+
 # Cleanup
 rm -rf "$SCRIPT_DIR/../pqclean_tmp"
 
