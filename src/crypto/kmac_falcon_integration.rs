@@ -69,6 +69,9 @@ pub struct QuantumSafeHint {
     /// AEAD ciphertext (XChaCha20-Poly1305)
     pub encrypted_payload: Vec<u8>,
     
+    /// ✅ NEW: Sender's Falcon public key (for verification + transcript)
+    pub sender_falcon_pk: Vec<u8>,
+    
     /// Timestamp for replay protection
     pub timestamp: u64,
     
@@ -82,6 +85,7 @@ impl Zeroize for QuantumSafeHint {
         self.x25519_eph_pub.zeroize();
         self.falcon_signed_msg.zeroize();
         self.encrypted_payload.zeroize();
+        self.sender_falcon_pk.zeroize();  // ✅ NEW
         self.timestamp = 0;
         self.epoch = 0;
     }
@@ -198,7 +202,7 @@ fn aead_encrypt(
     
     // Encrypt with AAD (transcript binding)
     let ciphertext = cipher.encrypt(
-        &XNonce::from(nonce24),
+        XNonce::from_slice(&nonce24),  // ✅ FIXED: use from_slice
         chacha20poly1305::aead::Payload {
             msg: &plaintext,
             aad,
@@ -224,7 +228,7 @@ fn aead_decrypt(
     
     // Decrypt with AAD
     let plaintext = cipher.decrypt(
-        &XNonce::from(nonce24),
+        XNonce::from_slice(&nonce24),  // ✅ FIXED: use from_slice
         chacha20poly1305::aead::Payload {
             msg: ciphertext,
             aad,
@@ -334,13 +338,14 @@ impl QuantumKeySearchCtx {
         let ss_h = kmac256_derive_key(&input, b"QH/HYBRID", c_out);
         
         // 4. Construct transcript (binds all parameters)
+        let sender_pk_bytes = <FalconPublicKey as PQSignPublicKey>::as_bytes(&self.falcon_identity.1);
         let tr = transcript(
             epoch,
             timestamp,
             c_out,
             kem_ct_bytes,
             &x25519_eph_pub,
-            <FalconPublicKey as PQSignPublicKey>::as_bytes(&self.falcon_identity.1),
+            sender_pk_bytes,  // ✅ FIXED: use sender's PK
         );
         
         // 5. Sign transcript with Falcon (identity key)
@@ -355,6 +360,7 @@ impl QuantumKeySearchCtx {
             x25519_eph_pub,
             falcon_signed_msg,
             encrypted_payload,
+            sender_falcon_pk: sender_pk_bytes.to_vec(),  // ✅ NEW: include sender PK
             timestamp,
             epoch,
         })
@@ -375,10 +381,10 @@ impl QuantumKeySearchCtx {
         hint: &QuantumSafeHint,
         c_out: &[u8; 32],
     ) -> Option<(DecodedHint, bool)> {
-        // 1. Epoch validation
-        let current_epoch = self.key_manager.get_current_epoch();
-        if hint.epoch > current_epoch + 1 {
-            return None; // Future epoch not allowed
+        // 1. Epoch validation (accept current or previous)
+        let e = self.key_manager.get_current_epoch();
+        if !(hint.epoch == e || hint.epoch.saturating_add(1) == e) {
+            return None;  // ✅ FIXED: stricter validation
         }
         
         // 2. Timestamp freshness (2-hour window)
@@ -394,12 +400,13 @@ impl QuantumKeySearchCtx {
             c_out,
             &hint.kem_ct,
             &hint.x25519_eph_pub,
-            <FalconPublicKey as PQSignPublicKey>::as_bytes(&self.falcon_identity.1),
+            &hint.sender_falcon_pk,  // ✅ CRITICAL FIX: use SENDER's PK from hint
         );
         
         // 4. Verify Falcon signature over transcript
+        let sender_pk = FalconPublicKey::from_bytes(&hint.sender_falcon_pk).ok()?;  // ✅ NEW: parse sender PK
         let sm = <FalconSignedMessage as PQSignedMessage>::from_bytes(&hint.falcon_signed_msg).ok()?;
-        let opened = falcon512::open(&sm, &self.falcon_identity.1).ok()?;
+        let opened = falcon512::open(&sm, &sender_pk).ok()?;  // ✅ CRITICAL FIX: verify with SENDER's PK
         if opened != tr {
             return None; // Signature invalid or transcript mismatch
         }
@@ -475,5 +482,40 @@ mod tests {
         // Should have all keys initialized
         assert!(<MlkemPublicKey as PQKemPK>::as_bytes(ctx.mlkem_public_key()).len() > 0);
         assert!(<FalconPublicKey as PQSignPK>::as_bytes(ctx.falcon_public_key()).len() == 897);
+    }
+
+    #[test]
+    fn roundtrip_pq_hint_with_sender_pk() {
+        // ✅ CRITICAL TEST: Verifies signature uses SENDER's PK, not receiver's
+        let seed_sender = [7u8; 32];
+        let sender = QuantumKeySearchCtx::new(seed_sender).unwrap();
+
+        // Recipient – separate context with own keys
+        let seed_recip = [9u8; 32];
+        let recip = QuantumKeySearchCtx::new(seed_recip).unwrap();
+
+        let c_out = [0xCD; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [1; 32],
+            value: 1337,
+            memo: Vec::new(),
+        };
+
+        // Sender builds hint to recipient
+        let hint = sender.build_quantum_hint(
+            recip.mlkem_public_key(),
+            &recip.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Recipient verifies signature using SENDER's PK from hint
+        let out = recip.verify_quantum_hint(&hint, &c_out);
+        assert!(out.is_some(), "Verification should succeed with sender's PK");
+        
+        let (dec, verified) = out.unwrap();
+        assert!(verified, "Should be quantum verified");
+        assert_eq!(dec.value, Some(1337), "Value should match");
+        assert_eq!(dec.r_blind, [1; 32], "Blinding should match");
     }
 }
