@@ -1,13 +1,13 @@
 [package]
-name = "quantum_wallet"
-version = "0.1.0"
+name = "quantum_falcon_wallet"
+version = "0.2.0"
 edition = "2021"
 authors = ["Quantum Security Team"]
-description = "Post-quantum secure cryptocurrency wallet"
+description = "Advanced post-quantum wallet with KMAC + Falcon512"
 license = "MIT"
 
 [lib]
-name = "quantum_wallet"
+name = "quantum_falcon_wallet"
 path = "src/lib.rs"
 
 [dependencies]
