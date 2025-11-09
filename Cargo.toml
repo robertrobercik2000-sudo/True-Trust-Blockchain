@@ -86,10 +86,10 @@ ed25519-dalek = { version = "2.1", optional = true }
 bech32 = { version = "0.11", optional = true }
 
 [features]
-default = ["cli", "seeded_falcon"]  # ✅ Deterministic Falcon by default
+default = ["cli"]  # ✅ Basic features (seeded_falcon is optional)
 cli = ["clap", "dirs", "serde_json"]
-tt-full = ["cli", "argon2", "rpassword", "sharks", "ed25519-dalek", "bech32", "seeded_falcon"]
-seeded_falcon = ["falcon_seeded"]  # ✅ FFI to PQClean with KMAC-DRBG
+tt-full = ["cli", "argon2", "rpassword", "sharks", "ed25519-dalek", "bech32"]  # v5 wallet (no Falcon required)
+seeded_falcon = ["falcon_seeded"]  # ✅ OPTIONAL: Deterministic Falcon (requires PQClean setup)
 
 [dependencies.falcon_seeded]
 path = "falcon_seeded"
