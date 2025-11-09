@@ -2,7 +2,7 @@
 //! Provides compact witness format for weight verification
 
 use crate::pot::{EpochSnapshot, MerkleProof, NodeId, Q, StakeQ};
-use sha2::{Digest, Sha256};
+use sha3::{Digest, Sha3_512};
 
 /// Compact weight witness format (V1)
 /// Contains minimal information needed to verify a node's weight in an epoch snapshot
@@ -49,26 +49,28 @@ impl SnapshotWitnessExt for EpochSnapshot {
 
 #[inline]
 fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"WGT.v1");
     h.update(who);
     h.update(stake_q.to_le_bytes());
     h.update(trust_q.to_le_bytes());
     let out = h.finalize();
+    // Use first 32 bytes of SHA3-512 output
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
 #[inline]
 fn merkle_parent(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"MRK.v1");
     h.update(a);
     h.update(b);
     let out = h.finalize();
+    // Use first 32 bytes of SHA3-512 output
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 

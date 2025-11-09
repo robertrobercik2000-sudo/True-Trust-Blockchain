@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use core::cmp::Ordering;
-use sha2::{Digest, Sha256};
+use sha3::{Digest, Sha3_512};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // nowa ścieżka: weryfikacja świadka z snapshot.rs (nie rusza starego API)
@@ -220,37 +220,40 @@ pub struct MerkleProof { pub leaf_index: u64, pub siblings: Vec<[u8; 32]> }
 
 #[inline]
 fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"WGT.v1");
     h.update(who);
     h.update(stake_q.to_le_bytes());
     h.update(trust_q.to_le_bytes());
     let out = h.finalize();
+    // Use first 32 bytes of SHA3-512 output
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
 #[inline]
 fn merkle_parent(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"MRK.v1");
     h.update(a);
     h.update(b);
     let out = h.finalize();
+    // Use first 32 bytes of SHA3-512 output
     let mut r = [0u8; 32];
-    r.copy_from_slice(&out);
+    r.copy_from_slice(&out[..32]);
     r
 }
 
 fn merkle_root(leaves: &[[u8; 32]]) -> [u8; 32] {
     if leaves.is_empty() {
         // Special hash for empty tree to avoid collision with [0u8; 32]
-        let mut h = Sha256::new();
+        let mut h = Sha3_512::new();
         h.update(b"MRK.empty.v1");
         let out = h.finalize();
+        // Use first 32 bytes of SHA3-512 output
         let mut r = [0u8; 32];
-        r.copy_from_slice(&out);
+        r.copy_from_slice(&out[..32]);
         return r;
     }
     let mut layer = leaves.to_vec();
@@ -337,12 +340,16 @@ impl RandaoBeacon {
     
     #[inline]
     pub fn commit_hash(epoch: u64, who: &NodeId, r: &[u8; 32]) -> [u8; 32] {
-        let mut h = Sha256::new();
+        let mut h = Sha3_512::new();
         h.update(b"RANDAO.commit.v1");
         h.update(&epoch.to_le_bytes());
         h.update(who);
         h.update(r);
-        h.finalize().into()
+        let out = h.finalize();
+        // Use first 32 bytes of SHA3-512 output
+        let mut r = [0u8; 32];
+        r.copy_from_slice(&out[..32]);
+        r
     }
     
     pub fn commit(&mut self, epoch: u64, who: NodeId, c: [u8; 32]) {
@@ -399,23 +406,31 @@ impl RandaoBeacon {
             Some(e) if !e.finalized => e.seed, // Use seed even if not finalized
             _ => self.prev_beacon,
         };
-        let mut h = Sha256::new();
+        let mut h = Sha3_512::new();
         h.update(b"RANDAO.slot.v1");
         h.update(&epoch.to_le_bytes());
         h.update(&slot.to_le_bytes());
         h.update(base);
-        h.finalize().into()
+        let out = h.finalize();
+        // Use first 32 bytes of SHA3-512 output
+        let mut r = [0u8; 32];
+        r.copy_from_slice(&out[..32]);
+        r
     }
 }
 
 #[inline]
 fn mix_hash(prev: &[u8; 32], who: &NodeId, r: &[u8; 32]) -> [u8; 32] {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"RANDAO.mix.v1");
     h.update(prev);
     h.update(who);
     h.update(r);
-    h.finalize().into()
+    let out = h.finalize();
+    // Use first 32 bytes of SHA3-512 output
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out[..32]);
+    r
 }
 
 /* ===== Sortition (BEACON+MERKLE) ===== */
@@ -433,12 +448,13 @@ pub struct LeaderWitness {
 
 #[inline]
 fn elig_hash(beacon: &[u8; 32], slot: u64, who: &NodeId) -> u64 {
-    let mut h = Sha256::new();
+    let mut h = Sha3_512::new();
     h.update(b"ELIG.v1");
     h.update(beacon);
     h.update(&slot.to_le_bytes());
     h.update(who);
     let d = h.finalize();
+    // Use first 8 bytes of SHA3-512 output
     let mut w = [0u8; 8];
     w.copy_from_slice(&d[..8]);
     u64::from_be_bytes(w)
@@ -653,13 +669,14 @@ mod tests {
         assert_eq!(miss.len(), 0); 
         assert_ne!(val, [0u8; 32]);
         let v0 = b.value(e, 0);
-        let mut h = Sha256::new();
+        let mut h = Sha3_512::new();
         h.update(b"RANDAO.slot.v1"); 
         h.update(&e.to_le_bytes()); 
         h.update(&0u64.to_le_bytes()); 
         h.update(val);
+        let out = h.finalize();
         let mut exp = [0u8; 32];
-        exp.copy_from_slice(&h.finalize()[..32]);
+        exp.copy_from_slice(&out[..32]);
         assert_eq!(v0, exp);
     }
 
