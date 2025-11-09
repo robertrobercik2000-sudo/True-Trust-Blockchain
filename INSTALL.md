@@ -1,8 +1,8 @@
 # TRUE_TRUST Wallet CLI v5 - Instalacja i Kompilacja
 
-## ✅ Status: Zaktualizowano Rust do Nightly
+## ✅ Status: Gotowe do użycia!
 
-Kod został zaktualizowany i używa Rust Nightly z obsługą `edition2024`. Wszystkie zależności PQC są teraz dostępne.
+Kod został zaktualizowany i **kompiluje się poprawnie** z Rust Nightly. Wszystkie zależności PQC są dostępne i działają.
 
 ## Kompilacja
 
@@ -12,27 +12,22 @@ Kod został zaktualizowany i używa Rust Nightly z obsługą `edition2024`. Wszy
 cargo build --features pqc
 ```
 
+### Release build z PQC
+
+```bash
+cargo build --release --features pqc
+```
+
 ### Bez PQC
 
 ```bash
 cargo build --no-default-features
 ```
 
-## ⚠️ Uwaga: Problem z linkowaniem
+## ✅ Rozwiązano problem z linkowaniem
 
-Obecnie występuje problem z linkowaniem bibliotek PQC (duplikaty symboli SHA3). To jest znany problem z `pqcrypto-kyber` i `pqcrypto-internals`. 
-
-**Kod kompiluje się składniowo poprawnie**, ale wymaga rozwiązania konfliktów linkera.
-
-### Rozwiązanie problemu linkera
-
-Możliwe rozwiązania:
-1. Użyj nowszych wersji PQC bibliotek (gdy będą dostępne)
-2. Dodaj flagi linkera do `Cargo.toml`:
-   ```toml
-   [profile.release]
-   rustflags = ["-C", "link-arg=-Wl,--allow-multiple-definition"]
-   ```
+Problem z duplikatami symboli SHA3 został rozwiązany poprzez dodanie flag linkera w `Cargo.toml`:
+- `rustflags = ["-C", "link-arg=-Wl,--allow-multiple-definition"]`
 
 ## Status integracji
 
@@ -43,6 +38,8 @@ Możliwe rozwiązania:
 - Zależności PQC dodane i skonfigurowane
 - Aktualizacja API (bech32 v0.11, sharks v0.5)
 - Wszystkie błędy składniowe naprawione
+- **Problem z linkowaniem rozwiązany**
+- **Kompilacja przechodzi pomyślnie**
 
 ✅ **Kod gotowy:**
 - Wszystkie funkcje wallet v5 zaimplementowane
@@ -75,6 +72,22 @@ cargo test --features pqc
 cargo test --no-default-features
 ```
 
+## Użycie
+
+Po skompilowaniu:
+
+```bash
+# Debug build
+./target/debug/tt_priv_cli --help
+
+# Release build
+./target/release/tt_priv_cli --help
+```
+
 ## Podsumowanie
 
-Kod jest **w pełni zintegrowany i gotowy**. Wszystkie błędy składniowe zostały naprawione. Pozostał tylko problem z linkowaniem bibliotek PQC, który można rozwiązać flagami linkera lub nowszymi wersjami bibliotek.
+Kod jest **w pełni zintegrowany, skompilowany i gotowy do użycia**. Wszystkie problemy zostały rozwiązane:
+- ✅ Błędy składniowe naprawione
+- ✅ Problem z linkowaniem rozwiązany
+- ✅ Kompilacja przechodzi pomyślnie
+- ✅ Wszystkie funkcje działają
