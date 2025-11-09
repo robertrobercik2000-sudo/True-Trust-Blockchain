@@ -368,7 +368,7 @@ impl QuantumKeySearchCtx {
         Some(DecodedHint {
             r_blind: payload.r_blind,
             value: Some(payload.value),
-            memo_items: vec![payload.memo.clone()],
+            memo_items: crate::keysearch::tlv::decode(&payload.memo),
         })
     }
     

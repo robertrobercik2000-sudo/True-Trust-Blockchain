@@ -5,6 +5,7 @@
 #![warn(missing_docs)]
 
 pub mod crypto;
+pub mod crypto_kmac;
 pub mod keysearch;
 
 // Re-export main types
