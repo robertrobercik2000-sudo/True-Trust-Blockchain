@@ -16,6 +16,9 @@ pub mod tt_quantum_wallet;  // ✅ NOWY: Quantum wallet integration
 #[cfg(feature = "tt-full")]
 pub mod tt_cli;  // ✅ NOWY: Full CLI
 
+#[cfg(feature = "tt-full")]
+pub mod tt_priv_cli;  // ✅ NOWY: Complete standalone CLI v5
+
 // Re-export main types
 pub use crypto::{
     QuantumKeySearchCtx,

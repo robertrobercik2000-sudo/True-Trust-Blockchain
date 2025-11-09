@@ -1,13 +1,14 @@
-//! TT Private CLI - Full featured quantum wallet
-//! Main binary entry point
+//! Binary entry point for tt_priv_cli standalone wallet
+//! 
+//! This is a complete quantum-safe wallet CLI with:
+//! - Falcon512 + ML-KEM (Kyber768) post-quantum cryptography
+//! - Argon2id KDF with OS-local pepper
+//! - AES-GCM-SIV / XChaCha20-Poly1305 AEAD
+//! - Shamir M-of-N secret sharing
+//! - Atomic file operations
 
-#![forbid(unsafe_code)]
+use anyhow::Result;
 
-use quantum_falcon_wallet::tt_priv_cli;
-
-fn main() {
-    if let Err(e) = tt_priv_cli::run_cli() {
-        eprintln!("❌ Error: {:#}", e);
-        std::process::exit(1);
-    }
+fn main() -> Result<()> {
+    quantum_falcon_wallet::tt_priv_cli::run_cli()
 }

@@ -43,6 +43,23 @@ pub fn kmac256_xof(key: &[u8], label: &[u8], context: &[u8], output_len: usize) 
     Zeroizing::new(out)
 }
 
+/// Generate MAC tag using KMAC256
+pub fn kmac256_tag(key: &[u8], label: &[u8], message: &[u8]) -> [u8; 32] {
+    let mut hasher = Shake256::default();
+    Update::update(&mut hasher, b"KMAC256-TAG-v1");
+    Update::update(&mut hasher, &(key.len() as u64).to_le_bytes());
+    Update::update(&mut hasher, key);
+    Update::update(&mut hasher, &(label.len() as u64).to_le_bytes());
+    Update::update(&mut hasher, label);
+    Update::update(&mut hasher, &(message.len() as u64).to_le_bytes());
+    Update::update(&mut hasher, message);
+    
+    let mut reader = hasher.finalize_xof();
+    let mut out = [0u8; 32];
+    XofReader::read(&mut reader, &mut out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

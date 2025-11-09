@@ -20,6 +20,11 @@ name = "ttq"
 path = "src/tt_main.rs"
 required-features = ["tt-full"]
 
+[[bin]]
+name = "tt_priv_cli"
+path = "src/tt_priv_cli_main.rs"
+required-features = ["tt-full"]
+
 [dependencies]
 # Post-quantum cryptography
 pqcrypto-falcon = "0.3"
