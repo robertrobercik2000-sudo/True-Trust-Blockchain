@@ -1,6 +1,8 @@
-# Rust build artifacts
+# Rust
 /target/
 Cargo.lock
+**/*.rs.bk
+*.pdb
 
 # IDE
 .vscode/
@@ -13,23 +15,13 @@ Cargo.lock
 .DS_Store
 Thumbs.db
 
-# Wallet files (DO NOT commit!)
-*.bin
-*.wallet
+# Build artifacts
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
 
-# Secret exports (DO NOT commit!)
-secrets.json
-*_secrets.json
-
-# Backup shards (handle with care!)
-ttshard-*.json
-/backups/
-
-# Test data
-/receipts/
-/filters/
-*.jsonl
-
-# Temporary files
-*.tmp
-*.temp
+# Testing
+*.profraw
+*.profdata

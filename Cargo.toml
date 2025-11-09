@@ -3,21 +3,23 @@ name = "quantum_wallet"
 version = "0.1.0"
 edition = "2021"
 authors = ["Quantum Security Team"]
-description = "Post-quantum secure cryptocurrency wallet with Falcon512 integration"
+description = "Post-quantum secure cryptocurrency wallet"
 license = "MIT"
 
+[lib]
+name = "quantum_wallet"
+path = "src/lib.rs"
+
 [dependencies]
-# Cryptography - Post-Quantum
+# Post-quantum cryptography
 pqcrypto-falcon = "0.3"
 pqcrypto-traits = "0.3"
 
-# Cryptography - Traditional
-x25519-dalek = "2.0"
-ed25519-dalek = "2.1"
+# Traditional cryptography
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
 
-# Cryptography - Symmetric
+# Symmetric crypto
 aes-gcm-siv = "0.11"
-chacha20poly1305 = "0.10"
 
 # Hashing
 sha2 = "0.10"
@@ -41,24 +43,8 @@ lru = "0.12"
 anyhow = "1.0"
 thiserror = "1.0"
 
-# Encoding
+# Utilities
 hex = "0.4"
-
-# CLI (optional)
-clap = { version = "4.5", features = ["derive"], optional = true }
-
-[dev-dependencies]
-criterion = "0.5"
-
-[features]
-default = ["cli"]
-cli = ["clap"]
-bench = []
-
-[[bin]]
-name = "quantum_wallet"
-path = "src/main.rs"
-required-features = ["cli"]
 
 [profile.release]
 opt-level = 3

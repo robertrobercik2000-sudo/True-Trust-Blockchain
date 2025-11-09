@@ -5,12 +5,11 @@ pub mod kmac;
 pub mod falcon_integration;
 pub mod keysearch_quantum;
 
-// Re-exports for convenience
+// Re-exports
 pub use falcon_integration::{
     QuantumKeySearchCtx,
     QuantumSafeHint,
     HintPayload,
-    QuantumFoundNote,
     FalconKeyManager,
     FalconError,
 };
