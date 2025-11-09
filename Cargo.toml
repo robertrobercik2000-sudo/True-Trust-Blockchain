@@ -33,6 +33,7 @@ pqcrypto-traits = "0.3"
 
 # Traditional cryptography
 x25519-dalek = { version = "2.0", features = ["static_secrets"] }
+curve25519-dalek = { version = "4", features = ["serde"] }  # ✅ NEW: For hybrid commitments
 
 # Symmetric crypto
 aes-gcm-siv = "0.11"
@@ -42,6 +43,10 @@ chacha20poly1305 = "0.10"  # ✅ DODANE: XChaCha20-Poly1305
 # Hashing
 sha2 = "0.10"
 sha3 = "0.10"
+tiny-keccak = { version = "2.0", features = ["cshake"] }  # ✅ NEW: For cSHAKE256
+
+# ZK proofs (Bulletproofs support)
+merlin = "3.0"  # ✅ NEW: For Bulletproofs transcripts
 
 # Random
 rand = "0.8"

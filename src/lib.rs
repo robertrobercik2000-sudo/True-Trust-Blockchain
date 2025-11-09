@@ -9,6 +9,9 @@ pub mod crypto_kmac;
 pub mod keysearch;
 pub mod consensus;
 pub mod snapshot;
+pub mod hybrid_commit;  // ✅ NEW: PQC-aware hybrid commitments (Idea 4)
+pub mod bp;  // ✅ NEW: Bulletproofs 64-bit (classical, for ZK guests)
+pub mod pqc_verify;  // ✅ NEW: Host-side PQC signature verification
 
 #[cfg(feature = "tt-full")]
 pub mod tt_quantum_wallet;  // ✅ NOWY: Quantum wallet integration
