@@ -31,6 +31,9 @@ pub use crypto::{
     FalconKeyManager,
     FalconError,
     kmac256_derive_key,
+    hint_fingerprint16,  // ✅ NEW: Bloom filter integration
+    DEFAULT_MAX_SKEW_SECS,
+    DEFAULT_ACCEPT_PREV_EPOCH,
 };
 
 pub use keysearch::{

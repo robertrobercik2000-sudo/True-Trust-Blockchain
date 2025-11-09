@@ -26,6 +26,34 @@ use x25519_dalek::{PublicKey as X25519PublicKey, StaticSecret as X25519Secret};
 use zeroize::{Zeroize, Zeroizing};
 
 /* ============================================================================
+ * Cryptographic Labels (for auditing and domain separation)
+ * ========================================================================== */
+
+/// Label for hybrid KEM shared secret derivation
+const LABEL_HYBRID: &[u8] = b"QH/HYBRID";
+
+/// Label for AEAD key derivation from shared secret
+const LABEL_AEAD_KEY: &[u8] = b"QH/AEAD/Key";
+
+/// Label for AEAD nonce derivation from shared secret
+const LABEL_AEAD_NONCE: &[u8] = b"QH/AEAD/Nonce24";
+
+/// Label for transcript binding
+const LABEL_TRANSCRIPT: &[u8] = b"QH/Transcript";
+
+/// Label for hint fingerprint (Bloom filter integration)
+const LABEL_HINT_FP: &[u8] = b"TT-HINT.FP.KEY";
+
+/// Label for hint fingerprint domain
+const LABEL_HINT_FP_DOMAIN: &[u8] = b"TT-HINT.FP.v1";
+
+/// Default timestamp freshness window (2 hours = 7200 seconds)
+pub const DEFAULT_MAX_SKEW_SECS: u64 = 7200;
+
+/// Default epoch validation policy (accept current or previous epoch)
+pub const DEFAULT_ACCEPT_PREV_EPOCH: bool = true;
+
+/* ============================================================================
  * Type Aliases
  * ========================================================================== */
 
@@ -188,9 +216,9 @@ fn aead_encrypt(
     payload: &HintPayloadV1,
 ) -> Result<Vec<u8>, FalconError> {
     // Derive key and nonce from shared secret
-    let key = kmac256_derive_key(ss_h, b"QH/AEAD/Key", b"");
+    let key = kmac256_derive_key(ss_h, LABEL_AEAD_KEY, b"");
     let mut nonce24 = [0u8; 24];
-    kmac256_xof_fill(ss_h, b"QH/AEAD/Nonce24", b"", &mut nonce24);
+    kmac256_xof_fill(ss_h, LABEL_AEAD_NONCE, b"", &mut nonce24);
     
     // Create cipher
     let cipher = XChaCha20Poly1305::new_from_slice(&key)
@@ -219,9 +247,9 @@ fn aead_decrypt(
     ciphertext: &[u8],
 ) -> Option<HintPayloadV1> {
     // Derive key and nonce (same as encrypt)
-    let key = kmac256_derive_key(ss_h, b"QH/AEAD/Key", b"");
+    let key = kmac256_derive_key(ss_h, LABEL_AEAD_KEY, b"");
     let mut nonce24 = [0u8; 24];
-    kmac256_xof_fill(ss_h, b"QH/AEAD/Nonce24", b"", &mut nonce24);
+    kmac256_xof_fill(ss_h, LABEL_AEAD_NONCE, b"", &mut nonce24);
     
     // Create cipher
     let cipher = XChaCha20Poly1305::new_from_slice(&key).ok()?;
@@ -335,7 +363,7 @@ impl QuantumKeySearchCtx {
         let mut input = Vec::with_capacity(kem_ss_bytes.len() + dh.as_ref().len());
         input.extend_from_slice(kem_ss_bytes);
         input.extend_from_slice(dh.as_ref());
-        let ss_h = kmac256_derive_key(&input, b"QH/HYBRID", c_out);
+        let ss_h = kmac256_derive_key(&input, LABEL_HYBRID, c_out);
         
         // 4. Construct transcript (binds all parameters)
         let sender_pk_bytes = <FalconPublicKey as PQSignPublicKey>::as_bytes(&self.falcon_identity.1);
@@ -376,20 +404,34 @@ impl QuantumKeySearchCtx {
     /// 5. ML-KEM decapsulation
     /// 6. X25519 ECDH (hybrid)
     /// 7. AEAD decryption with transcript AAD
-    pub fn verify_quantum_hint(
+    /// Verify quantum hint with configurable time/epoch parameters
+    /// 
+    /// # Parameters
+    /// - `hint`: The quantum-safe hint to verify
+    /// - `c_out`: Output commitment binding (32 bytes)
+    /// - `max_skew_secs`: Maximum timestamp age in seconds (default: 7200 = 2 hours)
+    /// - `accept_prev_epoch`: Whether to accept hints from previous epoch (default: true)
+    pub fn verify_quantum_hint_with_params(
         &self,
         hint: &QuantumSafeHint,
         c_out: &[u8; 32],
+        max_skew_secs: u64,
+        accept_prev_epoch: bool,
     ) -> Option<(DecodedHint, bool)> {
-        // 1. Epoch validation (accept current or previous)
+        // 1. Epoch validation
         let e = self.key_manager.get_current_epoch();
-        if !(hint.epoch == e || hint.epoch.saturating_add(1) == e) {
-            return None;  // ✅ FIXED: stricter validation
+        let valid_epoch = if accept_prev_epoch {
+            hint.epoch == e || hint.epoch.saturating_add(1) == e
+        } else {
+            hint.epoch == e
+        };
+        if !valid_epoch {
+            return None;
         }
         
-        // 2. Timestamp freshness (2-hour window)
+        // 2. Timestamp freshness
         let now = current_timestamp();
-        if now.saturating_sub(hint.timestamp) > 7200 {
+        if now.saturating_sub(hint.timestamp) > max_skew_secs {
             return None; // Too old, possible replay
         }
         
@@ -425,7 +467,7 @@ impl QuantumKeySearchCtx {
         let mut input = Vec::with_capacity(kem_ss_bytes.len() + dh.as_ref().len());
         input.extend_from_slice(kem_ss_bytes);
         input.extend_from_slice(dh.as_ref());
-        let ss_h = kmac256_derive_key(&input, b"QH/HYBRID", c_out);
+        let ss_h = kmac256_derive_key(&input, LABEL_HYBRID, c_out);
         
         // 8. AEAD decrypt with transcript as AAD
         let payload = aead_decrypt(&ss_h, &tr, &hint.encrypted_payload)?;
@@ -439,6 +481,22 @@ impl QuantumKeySearchCtx {
         
         Some((decoded, true))
     }
+
+    /// Verify quantum hint with default parameters
+    /// 
+    /// Uses DEFAULT_MAX_SKEW_SECS (7200s) and DEFAULT_ACCEPT_PREV_EPOCH (true)
+    pub fn verify_quantum_hint(
+        &self,
+        hint: &QuantumSafeHint,
+        c_out: &[u8; 32],
+    ) -> Option<(DecodedHint, bool)> {
+        self.verify_quantum_hint_with_params(
+            hint,
+            c_out,
+            DEFAULT_MAX_SKEW_SECS,
+            DEFAULT_ACCEPT_PREV_EPOCH,
+        )
+    }
 }
 
 /* ============================================================================
@@ -450,6 +508,37 @@ fn current_timestamp() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+/// Generate 16-byte fingerprint for Bloom filter integration
+/// 
+/// This allows pre-filtering hints without full decryption:
+/// - Scan headers with Bloom filter using this fingerprint
+/// - Only attempt full verification on matches
+/// 
+/// # Security
+/// 
+/// Fingerprint is derived from transcript, which binds:
+/// - All cryptographic parameters (KEM CT, X25519 pub, Falcon PK)
+/// - Output commitment (c_out)
+/// - Epoch and timestamp
+/// 
+/// This ensures fingerprint uniqueness without leaking sensitive data.
+pub fn hint_fingerprint16(hint: &QuantumSafeHint, c_out: &[u8; 32]) -> [u8; 16] {
+    let tr = transcript(
+        hint.epoch,
+        hint.timestamp,
+        c_out,
+        &hint.kem_ct,
+        &hint.x25519_eph_pub,
+        &hint.sender_falcon_pk,
+    );
+    
+    // Derive 16-byte tag from transcript using KMAC256
+    let key = kmac256_derive_key(&tr, LABEL_HINT_FP, LABEL_HINT_FP_DOMAIN);
+    let mut fp = [0u8; 16];
+    fp.copy_from_slice(&key[..16]);
+    fp
 }
 
 #[cfg(test)]
@@ -517,5 +606,212 @@ mod tests {
         assert!(verified, "Should be quantum verified");
         assert_eq!(dec.value, Some(1337), "Value should match");
         assert_eq!(dec.r_blind, [1; 32], "Blinding should match");
+    }
+
+    #[test]
+    fn verify_fails_on_tampered_timestamp() {
+        // ✅ NEGATIVE TEST: Ensures replay protection via timestamp validation
+        let s = QuantumKeySearchCtx::new([1; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([2; 32]).unwrap();
+        let c_out = [3; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [4; 32],
+            value: 42,
+            memo: vec![],
+        };
+
+        let mut hint = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Tamper: Push timestamp outside 2-hour window
+        hint.timestamp = hint.timestamp.saturating_sub(7201);
+
+        // Should fail verification
+        assert!(
+            r.verify_quantum_hint(&hint, &c_out).is_none(),
+            "Verification must fail on stale timestamp"
+        );
+    }
+
+    #[test]
+    fn verify_fails_on_sender_pk_swap() {
+        // ✅ NEGATIVE TEST: Ensures transcript binds sender PK
+        use pqcrypto_traits::sign::PublicKey as PQSignPK;
+
+        let s1 = QuantumKeySearchCtx::new([11; 32]).unwrap();
+        let s2 = QuantumKeySearchCtx::new([22; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([33; 32]).unwrap();
+        let c_out = [44; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [55; 32],
+            value: 7,
+            memo: vec![],
+        };
+
+        let mut hint = s1.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Tamper: Swap sender PK (but signature was created by s1)
+        hint.sender_falcon_pk = <FalconPublicKey as PQSignPK>::as_bytes(s2.falcon_public_key()).to_vec();
+
+        // Should fail: transcript mismatch (PK changed)
+        assert!(
+            r.verify_quantum_hint(&hint, &c_out).is_none(),
+            "Verification must fail on swapped sender PK"
+        );
+    }
+
+    #[test]
+    fn verify_fails_on_kem_ct_tamper() {
+        // ✅ NEGATIVE TEST: Ensures KEM decapsulation integrity
+        let s = QuantumKeySearchCtx::new([7; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([9; 32]).unwrap();
+        let c_out = [0xCD; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [1; 32],
+            value: 1337,
+            memo: vec![],
+        };
+
+        let mut hint = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Tamper: Flip bit in KEM ciphertext
+        hint.kem_ct[0] ^= 0x01;
+
+        // Should fail: Either KEM decaps fails or AEAD decryption fails
+        assert!(
+            r.verify_quantum_hint(&hint, &c_out).is_none(),
+            "Verification must fail on tampered KEM ciphertext"
+        );
+    }
+
+    #[test]
+    fn verify_fails_on_x25519_pub_tamper() {
+        // ✅ NEGATIVE TEST: Ensures X25519 ephemeral key integrity
+        let s = QuantumKeySearchCtx::new([10; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([20; 32]).unwrap();
+        let c_out = [30; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [40; 32],
+            value: 9999,
+            memo: vec![],
+        };
+
+        let mut hint = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Tamper: Change X25519 ephemeral public key
+        hint.x25519_eph_pub[0] ^= 0xFF;
+
+        // Should fail: Transcript mismatch (X25519 pub is bound)
+        assert!(
+            r.verify_quantum_hint(&hint, &c_out).is_none(),
+            "Verification must fail on tampered X25519 ephemeral key"
+        );
+    }
+
+    #[test]
+    fn verify_fails_on_encrypted_payload_tamper() {
+        // ✅ NEGATIVE TEST: Ensures AEAD authentication
+        let s = QuantumKeySearchCtx::new([50; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([60; 32]).unwrap();
+        let c_out = [70; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [80; 32],
+            value: 5555,
+            memo: vec![],
+        };
+
+        let mut hint = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        // Tamper: Flip bit in encrypted payload (AEAD ciphertext)
+        hint.encrypted_payload[0] ^= 0x42;
+
+        // Should fail: AEAD authentication tag mismatch
+        assert!(
+            r.verify_quantum_hint(&hint, &c_out).is_none(),
+            "Verification must fail on tampered AEAD ciphertext"
+        );
+    }
+
+    #[test]
+    fn test_hint_fingerprint16_deterministic() {
+        // ✅ TEST: Fingerprint is deterministic for same hint+c_out
+        let s = QuantumKeySearchCtx::new([100; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([200; 32]).unwrap();
+        let c_out = [0xAB; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [0xCD; 32],
+            value: 42,
+            memo: vec![],
+        };
+
+        let hint = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out,
+            &payload,
+        ).unwrap();
+
+        let fp1 = hint_fingerprint16(&hint, &c_out);
+        let fp2 = hint_fingerprint16(&hint, &c_out);
+
+        assert_eq!(fp1, fp2, "Fingerprint must be deterministic");
+        assert_eq!(fp1.len(), 16, "Fingerprint must be exactly 16 bytes");
+    }
+
+    #[test]
+    fn test_hint_fingerprint16_unique_per_hint() {
+        // ✅ TEST: Different hints produce different fingerprints
+        let s = QuantumKeySearchCtx::new([111; 32]).unwrap();
+        let r = QuantumKeySearchCtx::new([222; 32]).unwrap();
+        let c_out1 = [0x11; 32];
+        let c_out2 = [0x22; 32];
+        let payload = HintPayloadV1 {
+            r_blind: [0x33; 32],
+            value: 777,
+            memo: vec![],
+        };
+
+        let hint1 = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out1,
+            &payload,
+        ).unwrap();
+
+        let hint2 = s.build_quantum_hint(
+            r.mlkem_public_key(),
+            &r.x25519_public_key(),
+            &c_out2,
+            &payload,
+        ).unwrap();
+
+        let fp1 = hint_fingerprint16(&hint1, &c_out1);
+        let fp2 = hint_fingerprint16(&hint2, &c_out2);
+
+        assert_ne!(fp1, fp2, "Different hints must have different fingerprints");
     }
 }
