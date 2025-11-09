@@ -1,0 +1,1056 @@
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=pqclean_common
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber512_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber512_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber768_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber768_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber1024_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber1024_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber512-90s_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber512-90s_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber768-90s_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber768-90s_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber1024-90s_clean
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:warning=cc: warning: argument unused during compilation: '-ffunction-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fdata-sections' [-Wunused-command-line-argument]
+cargo:warning=cc: warning: argument unused during compilation: '-fno-omit-frame-pointer' [-Wunused-command-line-argument]
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+exit status: 0
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=kyber1024-90s_avx2
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+OUT_DIR = Some(/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out)
+OPT_LEVEL = Some(0)
+TARGET = Some(x86_64-unknown-linux-gnu)
+CARGO_ENCODED_RUSTFLAGS = Some()
+HOST = Some(x86_64-unknown-linux-gnu)
+cargo:rerun-if-env-changed=CC_x86_64-unknown-linux-gnu
+CC_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=CC_x86_64_unknown_linux_gnu
+CC_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_CC
+HOST_CC = None
+cargo:rerun-if-env-changed=CC
+CC = None
+cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+RUSTC_WRAPPER = None
+cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+CRATE_CC_NO_DEFAULTS = None
+DEBUG = Some(true)
+cargo:rerun-if-env-changed=CFLAGS
+CFLAGS = None
+cargo:rerun-if-env-changed=HOST_CFLAGS
+HOST_CFLAGS = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64_unknown_linux_gnu
+CFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=CFLAGS_x86_64-unknown-linux-gnu
+CFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64-unknown-linux-gnu
+AR_x86_64-unknown-linux-gnu = None
+cargo:rerun-if-env-changed=AR_x86_64_unknown_linux_gnu
+AR_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=HOST_AR
+HOST_AR = None
+cargo:rerun-if-env-changed=AR
+AR = None
+cargo:rerun-if-env-changed=ARFLAGS
+ARFLAGS = None
+cargo:rerun-if-env-changed=HOST_ARFLAGS
+HOST_ARFLAGS = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64_unknown_linux_gnu
+ARFLAGS_x86_64_unknown_linux_gnu = None
+cargo:rerun-if-env-changed=ARFLAGS_x86_64-unknown-linux-gnu
+ARFLAGS_x86_64-unknown-linux-gnu = None
+cargo:rustc-link-lib=static=keccak4x
+cargo:rustc-link-search=native=/workspace/target/debug/build/pqcrypto-kyber-2be3209bc0764a4e/out
+cargo:rustc-cfg=enable_avx2

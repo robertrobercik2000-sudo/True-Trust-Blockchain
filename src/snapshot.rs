@@ -1,8 +1,8 @@
 //! Snapshot witness verification module
 //! Provides compact witness format for weight verification
 
-use crate::pot::{EpochSnapshot, MerkleProof, NodeId, Q, StakeQ};
 use crate::crypto_kmac_consensus::kmac256_hash;
+use crate::pot::{EpochSnapshot, MerkleProof, NodeId, StakeQ, Q};
 
 /// Compact weight witness format (V1)
 /// Contains minimal information needed to verify a node's weight in an epoch snapshot
@@ -30,13 +30,13 @@ impl SnapshotWitnessExt for EpochSnapshot {
         if wit.trust_q != self.trust_q_of(&wit.who) {
             return false;
         }
-        
+
         // Check leaf index matches
         match self.leaf_index_of(&wit.who) {
-            Some(idx) if idx == wit.leaf_index => {},
+            Some(idx) if idx == wit.leaf_index => {}
             _ => return false,
         }
-        
+
         // Verify Merkle proof
         let leaf = merkle_leaf_hash(&wit.who, wit.stake_q, wit.trust_q);
         let proof = MerkleProof {
@@ -49,11 +49,10 @@ impl SnapshotWitnessExt for EpochSnapshot {
 
 #[inline]
 fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
-    kmac256_hash(b"WGT.v1", &[
-        who,
-        &stake_q.to_le_bytes(),
-        &trust_q.to_le_bytes(),
-    ])
+    kmac256_hash(
+        b"WGT.v1",
+        &[who, &stake_q.to_le_bytes(), &trust_q.to_le_bytes()],
+    )
 }
 
 #[inline]
@@ -78,7 +77,7 @@ fn verify_merkle(proof: &MerkleProof, leaf: [u8; 32], root: [u8; 32]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pot::{Registry, TrustParams, TrustState, q_from_basis_points, ONE_Q};
+    use crate::pot::{q_from_basis_points, Registry, TrustParams, TrustState, ONE_Q};
 
     fn nid(n: u8) -> NodeId {
         let mut id = [0u8; 32];
@@ -98,9 +97,9 @@ mod tests {
         let a = nid(1);
         reg.insert(a, 100, true);
         ts.set(a, q_from_basis_points(5000));
-        
+
         let snap = EpochSnapshot::build(1, &reg, &ts, &tp, 0);
-        
+
         // Build witness from snapshot
         let proof = snap.build_proof(&a).unwrap();
         let wit = WeightWitnessV1 {
@@ -110,7 +109,7 @@ mod tests {
             leaf_index: proof.leaf_index,
             siblings: proof.siblings,
         };
-        
+
         assert!(snap.verify_witness(&wit));
     }
 
@@ -126,9 +125,9 @@ mod tests {
         let a = nid(1);
         reg.insert(a, 100, true);
         ts.set(a, ONE_Q);
-        
+
         let snap = EpochSnapshot::build(1, &reg, &ts, &tp, 0);
-        
+
         // Build witness with wrong stake_q
         let proof = snap.build_proof(&a).unwrap();
         let mut wit = WeightWitnessV1 {
@@ -138,9 +137,9 @@ mod tests {
             leaf_index: proof.leaf_index,
             siblings: proof.siblings,
         };
-        
+
         assert!(snap.verify_witness(&wit));
-        
+
         // Modify stake_q - should fail
         wit.stake_q = 0;
         assert!(!snap.verify_witness(&wit));
