@@ -23,10 +23,10 @@ pub mod tt_cli;  // ✅ NOWY: Full CLI
 #[cfg(feature = "tt-full")]
 pub mod tt_priv_cli;  // ✅ NOWY: Complete standalone CLI v5
 
-// Re-export main types (using Legacy for backward compat)
+// Re-export main types (now using CORRECTED implementation)
 pub use crypto::{
-    LegacyQuantumKeySearchCtx as QuantumKeySearchCtx,
-    LegacyQuantumSafeHint as QuantumSafeHint,
+    QuantumKeySearchCtx,  // ✅ Corrected (Falcon=sig, ML-KEM=KEX)
+    QuantumSafeHint,      // ✅ Corrected
     QuantumFoundNote,
     FalconKeyManager,
     FalconError,

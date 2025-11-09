@@ -15,13 +15,15 @@ pub mod quantum_hint_v2;    // ✅ NEW: CORRECTED hint implementation
 
 pub use kmac::{kmac256_derive_key, kmac256_xof_fill, kmac256_xof};
 
-// Legacy API (may use Falcon incorrectly)
+// ✅ Corrected Falcon implementation (Falcon=sig, ML-KEM=KEX, XChaCha=AEAD)
 pub use kmac_falcon_integration::{
-    QuantumKeySearchCtx as LegacyQuantumKeySearchCtx,
-    QuantumSafeHint as LegacyQuantumSafeHint,
+    QuantumKeySearchCtx,  // Main API
+    QuantumSafeHint,      // Main API
     QuantumFoundNote,
     FalconKeyManager,
     FalconError,
+    MlkemPublicKey,
+    MlkemSecretKey,
 };
 
 // ML-KEM module (transitional)

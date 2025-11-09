@@ -11,7 +11,7 @@
 #![cfg(feature = "tt-full")]
 
 use crate::tt_quantum_wallet::*;
-use crate::crypto::kmac_mlkem_integration::QuantumKeySearchCtx;  // ✅ POPRAWIONE
+use crate::crypto::QuantumKeySearchCtx;  // ✅ Now uses corrected implementation
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Parser, Subcommand};
 use std::fs;
