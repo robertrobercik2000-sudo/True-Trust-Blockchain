@@ -35,14 +35,9 @@ pub type Hash32 = [u8; 32];
  * ========================================================================== */
 
 /// PQC signature over nullifier
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NullifierSignature {
-    /// Falcon512 signature bytes
-    pub falcon_sig: Vec<u8>,
-    
-    /// Optional: ML-KEM encapsulated data (for future use)
-    pub mlkem_ct: Option<Vec<u8>>,
-}
+/// 
+/// This is now a re-export from falcon_sigs for consistency
+pub use crate::falcon_sigs::SignedNullifier as NullifierSignature;
 
 /// Note metadata (stored in Merkle tree or DB)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -84,38 +79,20 @@ pub trait PqcVerificationContext {
 /// 
 /// # Arguments
 /// - `nullifier`: The nullifier being spent
-/// - `signature`: Falcon512 signature
+/// - `signature`: Falcon512 signature (attached)
 /// - `falcon_pk`: Public key (must match note's pqc_pk_hash)
 /// 
 /// # Returns
 /// Ok(()) if signature is valid
+/// 
+/// # Security
+/// Uses proper Falcon-512 verification via falcon_sigs module
 pub fn verify_nullifier_signature(
     nullifier: &Hash32,
     signature: &NullifierSignature,
     falcon_pk: &falcon512::PublicKey,
 ) -> Result<()> {
-    // Falcon API workaround: detached signatures are just bytes
-    // We signed the nullifier, so we need to reconstruct message+sig
-    // For now, we'll use a simpler verification approach
-    
-    // Falcon sign() produces SignedMessage which includes both message and signature
-    // We can't easily verify detached signatures with pqcrypto-falcon
-    // So we'll verify by re-signing with a known key (NOT SECURE - placeholder)
-    
-    // TODO: Use proper detached signature verification
-    // For production, use falcon-rust or implement detached verify
-    
-    // Placeholder: just check signature length is valid
-    ensure!(
-        signature.falcon_sig.len() > 0 && signature.falcon_sig.len() < 10000,
-        "Invalid Falcon signature size"
-    );
-    
-    // SECURITY NOTE: This is a PLACEHOLDER for testing only!
-    // Real implementation needs proper Falcon detached signature verification
-    // or use attached signatures (sign nullifier, verify by open())
-    
-    Ok(())
+    crate::falcon_sigs::falcon_verify_nullifier(nullifier, signature, falcon_pk)
 }
 
 /// Verify complete spend authorization (ZK + PQC)
@@ -275,8 +252,16 @@ pub fn compute_pqc_fingerprint(
     falcon_pk: &[u8],
     mlkem_pk: &[u8],
 ) -> Hash32 {
-    use crate::hybrid_commit::pqc_fingerprint;
-    pqc_fingerprint(falcon_pk, mlkem_pk)
+    crate::hybrid_commit::pqc_fingerprint(falcon_pk, mlkem_pk)
+}
+
+/// Helper: Compute fingerprint from Falcon public key object
+pub fn compute_pqc_fingerprint_from_pk(
+    falcon_pk: &falcon512::PublicKey,
+    mlkem_pk: &[u8],
+) -> Hash32 {
+    use pqcrypto_traits::sign::PublicKey;
+    compute_pqc_fingerprint(falcon_pk.as_bytes(), mlkem_pk)
 }
 
 /// Serialize signature for storage
@@ -366,12 +351,9 @@ mod tests {
         
         ctx.add_note(nullifier, note, falcon_pk.clone());
         
-        // Sign nullifier
-        let sig_bytes = falcon512::sign(&nullifier.to_vec(), &falcon_sk);
-        let signature = NullifierSignature {
-            falcon_sig: sig_bytes.as_bytes().to_vec(),
-            mlkem_ct: None,
-        };
+        // Sign nullifier using falcon_sigs
+        let signature = crate::falcon_sigs::falcon_sign_nullifier(&nullifier, &falcon_sk)
+            .expect("Sign should succeed");
         
         // Verify
         let result = verify_spend_authorization(&mut ctx, &nullifier, &fp, &signature);
@@ -424,11 +406,8 @@ mod tests {
         
         // Use WRONG fingerprint
         let wrong_fp = [0xFFu8; 32];
-        let sig_bytes = falcon512::sign(&nullifier.to_vec(), &falcon_sk);
-        let signature = NullifierSignature {
-            falcon_sig: sig_bytes.as_bytes().to_vec(),
-            mlkem_ct: None,
-        };
+        let signature = crate::falcon_sigs::falcon_sign_nullifier(&nullifier, &falcon_sk)
+            .expect("Sign should succeed");
         
         let result = verify_spend_authorization(&mut ctx, &nullifier, &wrong_fp, &signature);
         assert!(result.is_err(), "Wrong fingerprint should fail");
