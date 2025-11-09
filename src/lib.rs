@@ -9,6 +9,7 @@ pub mod crypto_kmac;
 pub mod keysearch;
 pub mod consensus;
 pub mod snapshot;
+pub mod crypto_kmac_consensus;  // KMAC bridge for consensus
 pub mod hybrid_commit;  // ✅ NEW: PQC-aware hybrid commitments (Idea 4)
 pub mod bp;  // ✅ NEW: Bulletproofs 64-bit (classical, for ZK guests)
 pub mod falcon_sigs;  // ✅ NEW: Falcon-512 signature operations
