@@ -1,15 +1,16 @@
 //! KMAC + Falcon512 + ML-KEM(kyber768) integration for quantum-safe keysearch
+//! **NOTE:** This is LEGACY module - may use Falcon incorrectly!
+//! Use quantum_hint_v2 for corrected implementation.
 #![forbid(unsafe_code)]
 
-use crate::crypto::kmac::{kmac256_derive_key, kmac256_xof_fill}; // ✅ POPRAWIONE
+use crate::crypto::kmac::{kmac256_derive_key, kmac256_xof_fill};
 use crate::keysearch::{HintPayloadV1, DecodedHint};
 use chacha20poly1305::{XChaCha20Poly1305, aead::{Aead, KeyInit}, XNonce};
 use lru::LruCache;
 use pqcrypto_falcon::falcon512;
 use pqcrypto_kyber::kyber768 as mlkem;
 use pqcrypto_traits::sign::{PublicKey as PQPublicKey, SignedMessage as PQSignedMessage};
-use pqcrypto_traits::kem::{Ciphertext as PQCiphertext, SharedSecret as PQSharedSecret}; // ✅ DODANE
-use rand::RngCore;
+use pqcrypto_traits::kem::{Ciphertext as PQCiphertext, SharedSecret as PQSharedSecret};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -326,7 +327,7 @@ fn encrypt_payload_aead(
     let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| FalconError::SerializationFailed)?;
     let pt = bincode::serialize(payload).map_err(|_| FalconError::SerializationFailed)?;
     let nonce = XNonce::from(nonce24); // ✅ POPRAWIONE: from zamiast from_slice
-    let ct = cipher.encrypt(&nonce, chacha20poly1305::aead::Payload { msg: &pt, aad })
+    let ct = cipher.encrypt(&nonce.into(), chacha20poly1305::aead::Payload { msg: &pt, aad })
                    .map_err(|_| FalconError::SerializationFailed)?;
     Ok(ct)
 }
@@ -338,7 +339,7 @@ fn decrypt_payload_aead(ss_h: &[u8; 32], aad: &[u8], ct: &[u8]) -> Option<HintPa
 
     let cipher = XChaCha20Poly1305::new_from_slice(&key).ok()?;
     let nonce = XNonce::from(nonce24); // ✅ POPRAWIONE: from zamiast from_slice
-    let pt = cipher.decrypt(&nonce, chacha20poly1305::aead::Payload { msg: ct, aad }).ok()?;
+    let pt = cipher.decrypt(&nonce.into(), chacha20poly1305::aead::Payload { msg: ct, aad }).ok()?;
     bincode::deserialize(&pt).ok()
 }
 

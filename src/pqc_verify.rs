@@ -23,7 +23,7 @@
 
 #![forbid(unsafe_code)]
 
-use anyhow::{anyhow, bail, ensure, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use pqcrypto_falcon::falcon512;
 use pqcrypto_traits::sign::PublicKey as PQPublicKey;
 use serde::{Deserialize, Serialize};
