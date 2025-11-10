@@ -1,0 +1,12 @@
+/workspace/target/debug/deps/librtoolbox-81db21b25bbb4cc2.rmeta: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/atty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/fix_line_issues.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/print_tty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_string.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_vec.rs
+
+/workspace/target/debug/deps/librtoolbox-81db21b25bbb4cc2.rlib: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/atty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/fix_line_issues.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/print_tty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_string.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_vec.rs
+
+/workspace/target/debug/deps/rtoolbox-81db21b25bbb4cc2.d: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/atty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/fix_line_issues.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/print_tty.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_string.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_vec.rs
+
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/lib.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/atty.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/fix_line_issues.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/print_tty.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_string.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/rtoolbox-0.0.3/src/safe_vec.rs:
