@@ -29,6 +29,11 @@ pqcrypto-falcon = "0.3"
 pqcrypto-kyber = "0.6"
 pqcrypto-traits = "0.3"
 base64ct = "=1.7.1"
+thiserror = "1.0"
+
+[[bin]]
+name = "tt_node"
+path = "src/tt_node_main.rs"
 
 [profile.release]
 opt-level = 3

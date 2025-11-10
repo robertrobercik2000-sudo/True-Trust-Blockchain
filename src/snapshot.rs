@@ -19,6 +19,9 @@ pub struct WeightWitnessV1 {
 pub trait SnapshotWitnessExt {
     /// Verify a compact weight witness against this snapshot
     fn verify_witness(&self, wit: &WeightWitnessV1) -> bool;
+
+    /// Build a compact witness for `who`, if the validator exists in the snapshot.
+    fn build_compact_witness(&self, who: &NodeId) -> Option<WeightWitnessV1>;
 }
 
 impl SnapshotWitnessExt for EpochSnapshot {
@@ -44,6 +47,17 @@ impl SnapshotWitnessExt for EpochSnapshot {
             siblings: wit.siblings.clone(),
         };
         verify_merkle(&proof, leaf, self.weights_root)
+    }
+
+    fn build_compact_witness(&self, who: &NodeId) -> Option<WeightWitnessV1> {
+        let proof = self.build_proof(who)?;
+        Some(WeightWitnessV1 {
+            who: *who,
+            stake_q: self.stake_q_of(who),
+            trust_q: self.trust_q_of(who),
+            leaf_index: proof.leaf_index,
+            siblings: proof.siblings,
+        })
     }
 }
 

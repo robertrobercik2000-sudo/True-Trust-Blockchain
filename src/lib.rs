@@ -10,6 +10,7 @@
 pub mod crypto;
 pub mod crypto_kmac_consensus;
 pub mod pot;
+pub mod pot_node;
 pub mod snapshot;
 
 // Re-export main types for convenience

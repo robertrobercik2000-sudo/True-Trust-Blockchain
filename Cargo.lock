@@ -912,6 +912,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "sharks",
+ "thiserror",
  "x25519-dalek",
  "zeroize",
 ]
