@@ -1,6 +1,5 @@
 #![forbid(unsafe_code)]
 
-use core::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // nowa ścieżka: weryfikacja świadka z snapshot.rs (nie rusza starego API)
