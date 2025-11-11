@@ -2,7 +2,6 @@
 //! Provides compact witness format for weight verification
 
 use crate::pot::{EpochSnapshot, MerkleProof, NodeId, Q, StakeQ};
-use crate::crypto_kmac_consensus::kmac256_hash;
 
 /// Compact weight witness format (V1)
 /// Contains minimal information needed to verify a node's weight in an epoch snapshot
@@ -49,16 +48,31 @@ impl SnapshotWitnessExt for EpochSnapshot {
 
 #[inline]
 fn merkle_leaf_hash(who: &NodeId, stake_q: StakeQ, trust_q: Q) -> [u8; 32] {
-    kmac256_hash(b"WGT.v1", &[
-        who,
-        &stake_q.to_le_bytes(),
-        &trust_q.to_le_bytes(),
-    ])
+    // Use SHA256 for compatibility with pot.rs Merkle trees
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"WGT.v1");
+    h.update(who);
+    h.update(stake_q.to_le_bytes());
+    h.update(trust_q.to_le_bytes());
+    let out = h.finalize();
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out);
+    r
 }
 
 #[inline]
 fn merkle_parent(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
-    kmac256_hash(b"MRK.v1", &[a, b])
+    // Use SHA256 for compatibility with pot.rs Merkle trees
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(b"MRK.v1");
+    h.update(a);
+    h.update(b);
+    let out = h.finalize();
+    let mut r = [0u8; 32];
+    r.copy_from_slice(&out);
+    r
 }
 
 fn verify_merkle(proof: &MerkleProof, leaf: [u8; 32], root: [u8; 32]) -> bool {

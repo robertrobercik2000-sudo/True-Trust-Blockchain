@@ -937,6 +937,7 @@ dependencies = [
  "rpassword",
  "serde",
  "serde_json",
+ "sha2",
  "sha3",
  "sharks",
  "thiserror",
