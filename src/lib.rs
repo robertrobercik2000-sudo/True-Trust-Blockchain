@@ -7,6 +7,7 @@
 //! - Sortition-based leader selection
 //! - Equivocation detection and slashing
 
+pub mod consensus;
 pub mod crypto;
 pub mod crypto_kmac_consensus;
 pub mod pot;
