@@ -43,6 +43,7 @@ pub mod node;  // Production node v2 with split BP verifiers
 pub mod tx;
 pub mod cpu_proof; // CPU-only micro PoW and proof metrics
 pub mod cpu_mining; // Hybrid PoT+PoS+MicroPoW optimized for old CPUs
+pub mod pq_simple; // Simplified Post-Quantum: Falcon512 + Kyber768
 
 // Re-export main types for convenience
 pub use pot::{
