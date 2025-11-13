@@ -1,9 +1,9 @@
 (function() {
-    var implementors = Object.fromEntries([["x25519_dalek",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"x25519_dalek/struct.PublicKey.html\" title=\"struct x25519_dalek::PublicKey\">PublicKey</a>"]]]]);
+    var implementors = Object.fromEntries([["pqcrypto_falcon",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"pqcrypto_falcon/falcon1024/struct.PublicKey.html\" title=\"struct pqcrypto_falcon::falcon1024::PublicKey\">PublicKey</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"pqcrypto_falcon/falcon1024/struct.SecretKey.html\" title=\"struct pqcrypto_falcon::falcon1024::SecretKey\">SecretKey</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"pqcrypto_falcon/falcon512/struct.PublicKey.html\" title=\"struct pqcrypto_falcon::falcon512::PublicKey\">PublicKey</a>"],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"pqcrypto_falcon/falcon512/struct.SecretKey.html\" title=\"struct pqcrypto_falcon::falcon512::SecretKey\">SecretKey</a>"]]],["x25519_dalek",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.82.0/core/cmp/trait.PartialEq.html\" title=\"trait core::cmp::PartialEq\">PartialEq</a> for <a class=\"struct\" href=\"x25519_dalek/struct.PublicKey.html\" title=\"struct x25519_dalek::PublicKey\">PublicKey</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
         window.pending_implementors = implementors;
     }
 })()
-//{"start":57,"fragment_lengths":[292]}
+//{"start":57,"fragment_lengths":[1229,293]}
