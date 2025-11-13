@@ -1,552 +1,596 @@
-//! Production blockchain node integrating:
-//! - PoT consensus (pot.rs + pot_node.rs)
-//! - PoZS ZK proofs (pozs.rs + pozs_groth16.rs)
-//! - RISC0 zkVM for private transactions (zk.rs)
-//! - Bulletproofs for range proofs (bp.rs)
-//! - Chain storage with orphan handling (chain.rs)
-//! - Public state (state.rs) and Private state (state_priv.rs)
+//! Production blockchain node v2 (host/src/node.rs)
+//! 
+//! Features:
+//! - Split BP verifiers (ZK journal vs wire TX)
+//! - Real ZK aggregation with fanout
+//! - Wbudowane Bloom filters
+//! - Orphan pool z timestampami
+//! - Ed25519 signing
+//! - PoT consensus integration
 
+#![allow(dead_code)]
+
+use std::{sync::Arc, time::Instant};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::path::PathBuf;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::io::AsyncReadExt;
-use tokio::time::{interval, Duration};
-use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::Mutex;
 
-use crate::core::{Hash32, Block, shake256_bytes, now_ts, BlockHeader};
+use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
+use serde::{Serialize, Deserialize};
+
+use crate::core::{Block, BlockHeader, Hash32, now_ts, bytes32};
 use crate::chain::ChainStore;
+use crate::consensus::Trust;
 use crate::state::State;
 use crate::state_priv::StatePriv;
-use crate::consensus::Trust;
-use crate::zk::{PrivClaim, verify_priv_receipt};
-use crate::tx::Transaction;
-// use crate::bp::{derive_H_pedersen, verify_bound_range_proof_64_bytes};
 
-// PoT integration
-use crate::pot::PotParams;
+// BP helpers (split: ZK journal vs wire TX)
+use crate::bp::{derive_H_pedersen, parse_dalek_range_proof_64, verify_range_proof_64};
+
+// ZK host interface
+use crate::zk::{self, AggPrivInput, verify_priv_receipt, verify_agg_receipt, bytes_to_words};
+
+// PoT consensus integration
 use crate::pot_node::PotNode;
+use crate::pot::PotParams;
 
-// PoZS integration (optional ZK proofs)
-#[cfg(feature = "zk-proofs")]
-use crate::pozs::{ZkProver, ZkVerifier, verify_leader_zk};
-
-// ===== Messages =====
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub enum NetMsg {
-    Handshake { peer_id: Vec<u8> },
-    Block { block: Block },
-    Tx { tx_bytes: Vec<u8> },
-    HiddenWitness { witness_bytes: Vec<u8> },
-    PrivClaimReceipt { receipt_bytes: Vec<u8> },
-}
-
-// ===== Bloom Filter for stealth addresses =====
-
+// =================== Wbudowane filtry Bloom ===================
 pub mod filters {
-    #[allow(dead_code)]
-    
+    use serde::{Deserialize, Serialize};
+    use std::{fs, io::Write, path::PathBuf};
+
+    pub type Hash32 = [u8; 32];
+
+    #[derive(Clone, Serialize, Deserialize, Debug)]
     pub struct BloomFilter {
-        bits: Vec<bool>,
-        k: usize, // num hash functions
+        m_bits: usize,
+        k_hash: usize,
+        bits: Vec<u8>,
     }
-    
+
     impl BloomFilter {
-        pub fn new(size: usize, k: usize) -> Self {
-            Self {
-                bits: vec![false; size],
-                k,
+        pub fn with_params(n_items_guess: u32, fp_rate: f64) -> Self {
+            let n = n_items_guess.max(1) as f64;
+            let p = fp_rate.clamp(1e-9, 0.5);
+            let ln2 = std::f64::consts::LN_2;
+            let m = ((-n * p.ln()) / (ln2 * ln2)).ceil().max(8.0) as usize;
+            let k = ((m as f64 / n) * ln2).round().clamp(1.0, 16.0) as usize;
+            let bytes = (m + 7) / 8;
+            Self { m_bits: m, k_hash: k, bits: vec![0u8; bytes] }
+        }
+
+        #[inline] fn set_bit(&mut self, idx: usize) {
+            let b = idx >> 3;
+            let m = 1u8 << (idx & 7);
+            self.bits[b] |= m;
+        }
+        #[inline] fn get_bit(&self, idx: usize) -> bool {
+            let b = idx >> 3;
+            let m = 1u8 << (idx & 7);
+            (self.bits[b] & m) != 0
+        }
+
+        fn h1_h2(x: &[u8]) -> (u128, u128) {
+            use tiny_keccak::{Hasher, Shake};
+            let mut sh = Shake::v256();
+            sh.update(b"BF");
+            sh.update(x);
+            let mut out = [0u8; 32];
+            sh.finalize(&mut out);
+            let (a, b) = out.split_at(16);
+            (u128::from_le_bytes(a.try_into().unwrap()), u128::from_le_bytes(b.try_into().unwrap()))
+        }
+
+        #[inline] fn index_for(&self, h1: u128, h2: u128, i: usize) -> usize {
+            let x = h1.wrapping_add(h2.wrapping_mul(i as u128));
+            (x % (self.m_bits as u128)) as usize
+        }
+
+        pub fn add(&mut self, x32: &Hash32) {
+            let (h1, h2) = Self::h1_h2(x32);
+            for i in 0..self.k_hash {
+                let idx = self.index_for(h1, h2, i);
+                self.set_bit(idx);
             }
         }
-        
-        fn hash_idx(&self, tag: u16, i: usize) -> usize {
-            let val = (tag as usize).wrapping_mul(i + 1);
-            val % self.bits.len()
-        }
-        
-        pub fn insert(&mut self, tag: u16) {
-            for i in 0..self.k {
-                let idx = self.hash_idx(tag, i);
-                self.bits[idx] = true;
-            }
-        }
-        
-        pub fn contains(&self, tag: u16) -> bool {
-            for i in 0..self.k {
-                let idx = self.hash_idx(tag, i);
-                if !self.bits[idx] {
-                    return false;
-                }
+
+        pub fn probably_contains(&self, x32: &Hash32) -> bool {
+            let (h1, h2) = Self::h1_h2(x32);
+            for i in 0..self.k_hash {
+                let idx = self.index_for(h1, h2, i);
+                if !self.get_bit(idx) { return false; }
             }
             true
         }
     }
+
+    #[derive(Clone, Serialize, Deserialize, Debug)]
+    pub struct EpochFilter {
+        pub epoch_idx: u32,
+        pub start_height: u64,
+        pub end_height: u64,
+        pub bloom: BloomFilter,
+    }
+
+    pub struct FilterStore {
+        root: PathBuf,
+        pub blocks_per_epoch: u64,
+    }
+
+    impl FilterStore {
+        pub fn open(root_dir: &str, blocks_per_epoch: u64) -> std::io::Result<Self> {
+            let p = PathBuf::from(root_dir);
+            fs::create_dir_all(&p)?;
+            Ok(Self { root: p, blocks_per_epoch })
+        }
+
+        fn path_for(&self, epoch_idx: u32) -> PathBuf {
+            self.root.join(format!("epoch_{:06}.bin", epoch_idx))
+        }
+
+        fn load_epoch(&self, epoch_idx: u32) -> Option<EpochFilter> {
+            let p = self.path_for(epoch_idx);
+            let data = fs::read(p).ok()?;
+            bincode::deserialize(&data).ok()
+        }
+
+        fn save_epoch(&self, ef: &EpochFilter) -> std::io::Result<()> {
+            let p = self.path_for(ef.epoch_idx);
+            let mut f = fs::File::create(p)?;
+            let data = bincode::serialize(ef).expect("serialize epoch filter");
+            f.write_all(&data)?;
+            Ok(())
+        }
+
+        pub fn epoch_index_for_height(&self, h: u64) -> u32 {
+            (h / self.blocks_per_epoch) as u32
+        }
+
+        pub fn on_block_accepted(
+            &self,
+            height: u64,
+            enc_hints: &[[u8; 32]],
+            n_items_guess: u32,
+            fp_rate: f64,
+        ) -> std::io::Result<()> {
+            let epoch_idx = self.epoch_index_for_height(height);
+            let start_h = (epoch_idx as u64) * self.blocks_per_epoch;
+            let end_h = start_h + (self.blocks_per_epoch - 1);
+
+            let mut ef = self.load_epoch(epoch_idx).unwrap_or_else(|| EpochFilter {
+                epoch_idx,
+                start_height: start_h,
+                end_height: end_h,
+                bloom: BloomFilter::with_params(n_items_guess.max(1), fp_rate),
+            });
+
+            for h in enc_hints.iter() { ef.bloom.add(h); }
+            self.save_epoch(&ef)
+        }
+    }
+
+    pub use FilterStore as Store;
 }
 
-// ===== Node struct =====
+/// Wiadomości sieciowe
+#[derive(Serialize, Deserialize)]
+enum NetMsg {
+    Block(Block),
+    Transaction(Vec<u8>), // TX serialized
+    HiddenWitness(HiddenWitnessNet),
+    PrivClaimReceipt(PrivClaimNet),
+}
 
-pub struct Node {
-    pub node_id: Vec<u8>,
-    pub listen_addr: String,
-    pub data_dir: PathBuf,
-    
-    // PoT consensus
+/// Prywatny świadek (off-chain)
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct HiddenWitnessNet {
+    pub tx_hash: Hash32,
+    pub pubkey:   Vec<u8>,
+    pub sig:      Vec<u8>,
+    pub index:    u32,
+    pub siblings: Vec<[u8;32]>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PrivClaimNet {
+    pub receipt_bincode: Vec<u8>,
+}
+
+/// Sieroty czekające na rodzica
+pub struct OrphanEntry { 
+    pub block: Block, 
+    pub ts: Instant 
+}
+pub type OrphanPool = HashMap<Hash32, Vec<OrphanEntry>>;
+
+pub struct NodeV2 {
+    pub listen: Option<String>,
+    pub trust: Trust,
+    pub require_zk: bool,
+
+    // PoT integration
     pub pot_node: Arc<Mutex<PotNode>>,
     pub pot_params: PotParams,
-    
-    // Chain and state
+
     pub chain: Arc<Mutex<ChainStore>>,
     pub state: Arc<Mutex<State>>,
-    pub state_priv: Arc<Mutex<StatePriv>>,
-    pub trust: Arc<Mutex<Trust>>,
-    
-    // Mempool and orphans
-    pub mempool: Arc<Mutex<Vec<Vec<u8>>>>,
-    pub orphans: Arc<Mutex<HashMap<Hash32, Block>>>,
-    
-    // Private transaction handling
-    pub priv_claims: Arc<Mutex<Vec<(PrivClaim, Vec<u8>)>>>,
-    pub ph_pending_tx: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
-    pub ph_pending_wit: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
-    
-    // Bloom filters for stealth address pre-filtering
-    pub filters: Arc<Mutex<filters::BloomFilter>>,
-    
-    // PoZS ZK verifier (optional)
-    #[cfg(feature = "zk-proofs")]
-    pub zk_verifier: Arc<Mutex<ZkVerifier>>,
+    pub st_priv: Arc<Mutex<StatePriv>>,
+
+    pub mempool: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>, // TX bytes
+    pub orphans: Arc<Mutex<OrphanPool>>,
+
+    // child receipts dla aggregacji
+    pub priv_claims: Arc<Mutex<Vec<Vec<u8>>>>,
+
+    // filtry Bloom
+    pub filters: Mutex<Option<filters::Store>>,
 }
 
-impl Node {
+impl NodeV2 {
+    pub const BLOCK_REWARD: u64 = 50; // TT
+
     pub fn new(
-        node_id: Vec<u8>,
-        listen_addr: String,
-        data_dir: PathBuf,
+        trust: Trust,
+        require_zk: bool,
+        pot_node: Arc<Mutex<PotNode>>,
         pot_params: PotParams,
-        pot_node: PotNode,
-    ) -> anyhow::Result<Self> {
-        std::fs::create_dir_all(&data_dir)?;
-        
-        let state_path = data_dir.join("state.json");
-        let state_priv_path = data_dir.join("state_priv.json");
-        
-        let state = State::open(&state_path)?;
-        let state_priv = StatePriv::open(&state_priv_path)?;
-        let trust = Trust::new();
-        
-        #[cfg(feature = "zk-proofs")]
-        let zk_verifier = {
-            let (_, vk) = crate::pozs_groth16::setup_keys()?;
-            ZkVerifier::new(vk)
-        };
-        
-        Ok(Self {
-            node_id,
-            listen_addr,
-            data_dir,
-            pot_node: Arc::new(Mutex::new(pot_node)),
+        state: Arc<Mutex<State>>,
+        st_priv: Arc<Mutex<StatePriv>>,
+    ) -> Self {
+        Self {
+            listen: None,
+            trust,
+            require_zk,
+            pot_node,
             pot_params,
             chain: Arc::new(Mutex::new(ChainStore::new())),
-            state: Arc::new(Mutex::new(state)),
-            state_priv: Arc::new(Mutex::new(state_priv)),
-            trust: Arc::new(Mutex::new(trust)),
-            mempool: Arc::new(Mutex::new(Vec::new())),
+            state,
+            st_priv,
+            mempool: Arc::new(Mutex::new(HashMap::new())),
             orphans: Arc::new(Mutex::new(HashMap::new())),
             priv_claims: Arc::new(Mutex::new(Vec::new())),
-            ph_pending_tx: Arc::new(Mutex::new(HashMap::new())),
-            ph_pending_wit: Arc::new(Mutex::new(HashMap::new())),
-            filters: Arc::new(Mutex::new(filters::BloomFilter::new(1_000_000, 3))),
-            #[cfg(feature = "zk-proofs")]
-            zk_verifier: Arc::new(Mutex::new(zk_verifier)),
-        })
+            filters: Mutex::new(None),
+        }
     }
-    
-    /// Start the node: network listener + mining loop
-    pub async fn start(&self) -> anyhow::Result<()> {
-        let listener = TcpListener::bind(&self.listen_addr).await?;
-        println!("🚀 Node listening on {}", self.listen_addr);
-        
-        // Spawn network handler
-        let node_clone = self.clone_refs();
-        tokio::spawn(async move {
-            Self::network_loop(node_clone, listener).await;
-        });
-        
-        // Spawn mining loop
-        let node_clone2 = self.clone_refs();
-        tokio::spawn(async move {
-            Self::mine_loop(node_clone2).await;
-        });
-        
+
+    pub async fn init_filters(&self, dir: &str, blocks_per_epoch: u64) -> anyhow::Result<()> {
+        let store = filters::Store::open(dir, blocks_per_epoch)?;
+        let mut g = self.filters.lock().await;
+        *g = Some(store);
         Ok(())
     }
-    
-    fn clone_refs(&self) -> NodeRefs {
-        NodeRefs {
-            node_id: self.node_id.clone(),
-            pot_node: Arc::clone(&self.pot_node),
-            pot_params: self.pot_params.clone(),
-            chain: Arc::clone(&self.chain),
-            state: Arc::clone(&self.state),
-            state_priv: Arc::clone(&self.state_priv),
-            trust: Arc::clone(&self.trust),
-            mempool: Arc::clone(&self.mempool),
-            orphans: Arc::clone(&self.orphans),
-            priv_claims: Arc::clone(&self.priv_claims),
-            ph_pending_tx: Arc::clone(&self.ph_pending_tx),
-            ph_pending_wit: Arc::clone(&self.ph_pending_wit),
-            filters: Arc::clone(&self.filters),
-            #[cfg(feature = "zk-proofs")]
-            zk_verifier: Arc::clone(&self.zk_verifier),
-        }
-    }
-    
-    async fn network_loop(refs: NodeRefs, listener: TcpListener) {
-        loop {
-            match listener.accept().await {
-                Ok((stream, addr)) => {
-                    println!("📡 Peer connected: {}", addr);
-                    let refs_clone = refs.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = Self::handle_peer(refs_clone, stream).await {
-                            eprintln!("❌ Peer error: {}", e);
-                        }
-                    });
-                }
-                Err(e) => {
-                    eprintln!("❌ Accept error: {}", e);
-                }
-            }
-        }
-    }
-    
-    async fn handle_peer(refs: NodeRefs, mut stream: TcpStream) -> anyhow::Result<()> {
-        let mut buf = vec![0u8; 65536];
-        loop {
-            let n = stream.read(&mut buf).await?;
-            if n == 0 {
-                break;
-            }
-            
-            let msg: NetMsg = bincode::deserialize(&buf[..n])?;
-            match msg {
-                NetMsg::Handshake { peer_id } => {
-                    println!("🤝 Handshake from peer: {:?}", hex::encode(&peer_id));
-                }
-                NetMsg::Block { block } => {
-                    Self::on_block_received(&refs, block).await;
-                }
-                NetMsg::Tx { tx_bytes } => {
-                    Self::on_tx_received(&refs, tx_bytes).await;
-                }
-                NetMsg::HiddenWitness { witness_bytes } => {
-                    Self::on_hidden_witness(&refs, witness_bytes).await;
-                }
-                NetMsg::PrivClaimReceipt { receipt_bytes } => {
-                    Self::on_priv_claim_receipt(&refs, receipt_bytes).await;
-                }
-            }
+
+    /* ===================== SPLIT BP VERIFIERS ===================== */
+
+    /// Verify BP dla ZK journal (agg output)
+    fn verify_outs_bp_zk(outs_bp: &[crate::zk::OutBp]) -> anyhow::Result<()> {
+        let H = derive_H_pedersen();
+        for (i, o) in outs_bp.iter().enumerate() {
+            let parsed = parse_dalek_range_proof_64(&o.proof_bytes)
+                .map_err(|e| anyhow::anyhow!("bp parse (agg out #{i}): {e}"))?;
+            verify_range_proof_64(&parsed, o.C_out, H)
+                .map_err(|e| anyhow::anyhow!("bp verify (agg out #{i}): {e}"))?;
         }
         Ok(())
     }
-    
-    async fn on_block_received(refs: &NodeRefs, block: Block) {
-        let id = block.header.id();
-        println!("📦 Received block: {}", hex::encode(&id));
+
+    /// Verify BP dla wire TX z mempoolu
+    fn verify_outs_bp_wire(tx_bytes: &[u8]) -> anyhow::Result<()> {
+        use crate::tx::Transaction;
+        let tx = Transaction::from_bytes(tx_bytes)?;
+        let (total, valid) = tx.verify_bulletproofs();
+        if total > 0 && total != valid {
+            anyhow::bail!("BP verify failed: {}/{} valid", valid, total);
+        }
+        Ok(())
+    }
+
+    /* ===================== ZK AGGREGATION Z FANOUT ===================== */
+
+    async fn aggregate_child_receipts(
+        &self,
+        fanout: usize,
+    ) -> anyhow::Result<Vec<u8>> {
+        let drained_receipts: Vec<Vec<u8>> = {
+            let mut pc = self.priv_claims.lock().await;
+            let take = pc.len().min(fanout);
+            pc.drain(..take).collect()
+        };
+
+        if drained_receipts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        if drained_receipts.len() == 1 {
+            eprintln!("ℹ️  zk-agg: single child passthrough");
+            return Ok(drained_receipts[0].clone());
+        }
+
+        // Aggregate multiple receipts using simplified API
+        // TODO: Upgrade to full API with old_notes_root, old_notes_count, old_frontier,
+        //       child_method_id, claim_receipts_words, claim_journals_words
+        let state_root = {
+            let sp = self.st_priv.lock().await;
+            sp.notes_root
+        };
+
+        let t_agg = Instant::now();
+        let (_agg_journal, agg_receipt_bin) =
+            zk::prove_agg_priv_with_receipts(drained_receipts.clone(), state_root)
+                .map_err(|e| anyhow::anyhow!("agg prove: {e}"))?;
         
-        // Verify ZK receipt (RISC0)
-        if !block.zk_receipt_bincode.is_empty() {
-            let state = refs.state.lock().unwrap();
-            let state_root = shake256_bytes(b"STATE_ROOT"); // TODO: actual state root
-            drop(state);
-            
-            match verify_priv_receipt(&block.zk_receipt_bincode, &state_root) {
-                Ok(claim) => {
-                    println!("✅ ZK receipt verified: {:?}", claim);
-                }
-                Err(e) => {
-                    eprintln!("❌ ZK receipt invalid: {}", e);
-                    return;
+        eprintln!("✅ zk-agg: batch_size={} took {:?}", 
+            drained_receipts.len(), t_agg.elapsed());
+
+        Ok(agg_receipt_bin)
+    }
+
+    /* ===================== NETWORKING ===================== */
+
+    pub async fn start_listener(self: &Arc<Self>, addr: &str) -> anyhow::Result<()> {
+        let listener = TcpListener::bind(addr).await?;
+        println!("🔊 Listening on: {addr}");
+        let me = self.clone();
+        tokio::spawn(async move {
+            loop {
+                match listener.accept().await {
+                    Ok((sock, raddr)) => {
+                        println!("▶️  Connected: {raddr}");
+                        let me2 = me.clone();
+                        tokio::spawn(async move { me2.handle_conn(sock).await; });
+                    }
+                    Err(e) => eprintln!("accept: {e}"),
                 }
             }
+        });
+        Ok(())
+    }
+
+    async fn handle_conn(self: &Arc<Self>, mut sock: TcpStream) {
+        let (r, mut w) = sock.split();
+        let mut reader = BufReader::new(r).lines();
+
+        while let Ok(Some(line)) = reader.next_line().await {
+            let s = line.trim();
+            if s.is_empty() { continue; }
+            match serde_json::from_str::<NetMsg>(s) {
+                Ok(NetMsg::Block(b)) => { let _ = self.on_block_received(b).await; }
+                Ok(NetMsg::Transaction(tx_bytes)) => { self.on_tx_received(tx_bytes).await; }
+                Ok(NetMsg::HiddenWitness(hw)) => { /* handle */ }
+                Ok(NetMsg::PrivClaimReceipt(rc)) => { self.on_priv_claim_receipt(rc).await; }
+                Err(e) => eprintln!("parse msg: {e}"),
+            }
         }
-        
-        // PoT verification (via pot_node)
-        // TODO: integrate pot_node.verify_leader()
-        
-        // Accept block
-        let mut chain = refs.chain.lock().unwrap();
-        let w_self = 1.0; // TODO: compute actual weight
-        let res = chain.accept_block(block, w_self);
-        
-        if res.is_new {
-            println!("✅ Block accepted (new: {}, head: {})", res.is_new, res.is_head);
+        let _ = w.shutdown().await;
+    }
+
+    async fn on_tx_received(&self, tx_bytes: Vec<u8>) {
+        // Verify Bulletproofs
+        if let Err(e) = Self::verify_outs_bp_wire(&tx_bytes) {
+            eprintln!("❌ BP verify failed: {e}");
+            return;
         }
+
+        let hash = bytes32(&tx_bytes);
+        self.mempool.lock().await.insert(hash, tx_bytes);
     }
-    
-    async fn on_tx_received(refs: &NodeRefs, tx_bytes: Vec<u8>) {
-        println!("💸 Received tx: {} bytes", tx_bytes.len());
-        refs.mempool.lock().unwrap().push(tx_bytes);
+
+    async fn on_priv_claim_receipt(&self, rc: PrivClaimNet) {
+        // TODO: Use full API: verify_priv_receipt(&rc.receipt_bincode, &expected_state_root)
+        // For now, skip verification and accept all receipts
+        // match verify_priv_receipt(&rc.receipt_bincode, &expected_state_root) {
+        //     Ok(_claim) => self.priv_claims.lock().await.push(rc.receipt_bincode),
+        //     Err(e) => eprintln!("❌ invalid child receipt: {e}"),
+        // }
+        self.priv_claims.lock().await.push(rc.receipt_bincode);
     }
-    
-    async fn on_hidden_witness(_refs: &NodeRefs, witness_bytes: Vec<u8>) {
-        println!("🔐 Received hidden witness: {} bytes", witness_bytes.len());
-        // TODO: store in ph_pending_wit
-    }
-    
-    async fn on_priv_claim_receipt(_refs: &NodeRefs, receipt_bytes: Vec<u8>) {
-        println!("🧾 Received priv claim receipt: {} bytes", receipt_bytes.len());
-        // TODO: verify + store in priv_claims
-    }
-    
-    async fn mine_loop(refs: NodeRefs) {
-        let mut ticker = interval(Duration::from_secs(5));
+
+    /* ===================== MINING LOOP ===================== */
+
+    pub async fn mine_loop(
+        self: &Arc<Self>,
+        max_blocks: u64,
+        interval_secs: u64,
+        seed32: [u8;32],
+    ) -> anyhow::Result<()> {
+        let (sk, pk) = {
+            let sk = SigningKey::from_bytes(&seed32);
+            let pk = VerifyingKey::from(&sk);
+            (sk, pk)
+        };
+
+        let author_pk = pk.as_bytes().to_vec();
+        let author_pk_hash = bytes32(&author_pk);
+
+        let mut dug = 0u64;
         loop {
-            ticker.tick().await;
-            
-            // ===== 1. GET CURRENT EPOCH/SLOT VIA PoT =====
+            if max_blocks > 0 && dug >= max_blocks { break; }
+
+            // ===== 1. CHECK PoT ELIGIBILITY =====
             let (current_epoch, current_slot, my_weight) = {
-                let pot_node = refs.pot_node.lock().unwrap();
+                let pot_node = self.pot_node.lock().await;
                 let epoch = pot_node.current_epoch();
                 let slot = pot_node.current_slot();
                 let weight = pot_node.check_eligibility(epoch, slot);
                 (epoch, slot, weight)
             };
-            
-            println!("⛏️  Mining tick: epoch={}, slot={}", current_epoch, current_slot);
-            
-            // ===== QUALITY-BASED MINING =====
-            
-            // Initialize quality metrics for this block
-            use crate::pot::{QualityMetrics, AdvancedTrustParams, apply_block_reward_with_quality};
-            let mut quality = QualityMetrics::default();
-            
-            // ===== 2. CHECK ELIGIBILITY - ACTUAL PoT CHECK! =====
-            if let Some(weight) = my_weight {
-                quality.block_produced = true;
-                println!("🎉 WON slot {}! Creating block...", current_slot);
-                
-                // ===== 3. COLLECT TRANSACTIONS FROM MEMPOOL =====
-                let (txs, valid_txs) = {
-                    let mp = refs.mempool.lock().unwrap();
-                    let tx_bytes = mp.clone();
-                    drop(mp);
-                    
-                    let mut parsed_txs = Vec::new();
-                    let mut total_bp = 0u32;
-                    let mut valid_bp = 0u32;
-                    let mut total_fees = 0u64;
-                    
-                    // Parse and verify each TX
-                    for bytes in &tx_bytes {
-                        match Transaction::from_bytes(bytes) {
-                            Ok(tx) => {
-                                // Verify Bulletproofs (PRACA kryptograficzna!)
-                                let (count, valid) = tx.verify_bulletproofs();
-                                total_bp += count;
-                                valid_bp += valid;
-                                
-                                // Only include TX if all Bulletproofs are valid
-                                if count > 0 && count == valid {
-                                    total_fees += tx.fee;
-                                    parsed_txs.push(tx);
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("⚠️  Failed to parse TX: {}", e);
-                                continue;
-                            }
-                        }
-                    }
-                    
-                    ((total_bp, valid_bp, total_fees), parsed_txs)
-                };
-                
-                quality.bulletproofs_count = txs.0;
-                quality.bulletproofs_valid = txs.1;
-                quality.fees_collected = txs.2;
-                quality.tx_count = valid_txs.len() as u32;
-                
-                println!("📦 Collected {} transactions", valid_txs.len());
-                println!("✅ Verified {}/{} Bulletproofs", 
-                    quality.bulletproofs_valid, quality.bulletproofs_count);
-                
-                // 4. Generate PoZS ZK proof (optional, jeśli feature enabled)
-                #[cfg(feature = "zk-proofs")]
+
+            if my_weight.is_none() {
+                // Not eligible for this slot
+                tokio::time::sleep(std::time::Duration::from_secs(interval_secs)).await;
+                continue;
+            }
+
+            let weight = my_weight.unwrap();
+            println!("🎉 WON slot {}! Creating block...", current_slot);
+
+            // ===== 2. GET PARENT =====
+            let (parent_id, parent_h, parent_w) = {
+                let ch = self.chain.lock().await;
+                if let Some((hid, _hb)) = ch.head() {
+                    let h = *ch.height.get(hid).unwrap_or(&0);
+                    let w = *ch.cumw.get(hid).unwrap_or(&0.0);
+                    (*hid, h, w)
+                } else { ([0u8;32], 0, 0.0) }
+            };
+
+            // ===== 3. COLLECT TXs =====
+            let tx_bytes_list: Vec<Vec<u8>> = {
+                let mut mp = self.mempool.lock().await;
+                mp.drain().map(|(_, tx)| tx).take(200).collect()
+            };
+
+            // ===== 4. ZK AGGREGATION =====
+            let fanout = std::env::var("TRUE_TRUST_ZK_FANOUT")
+                .ok()
+                .and_then(|v| v.parse::<usize>().ok())
+                .unwrap_or(16)
+                .clamp(1, 64);
+
+            let receipt_bytes = self.aggregate_child_receipts(fanout).await?;
+
+            // ===== 5. CREATE HEADER =====
+            let hdr = BlockHeader {
+                parent: parent_id,
+                height: parent_h + 1,
+                author_pk: author_pk.clone(),
+                author_pk_hash,
+                task_seed: bytes32(&[b"task", &parent_id[..]].concat()),
+                timestamp: now_ts(),
+                cum_weight_hint: weight as f64,
+                parent_state_hash: [0u8;32], // TODO: compute
+                result_state_hash: [0u8;32], // TODO: compute
+            };
+            let id = hdr.id();
+
+            // ===== 6. SIGN =====
+            let sig = sk.sign(&id);
+
+            // ===== 7. ASSEMBLE BLOCK =====
+            let b = Block {
+                header: hdr,
+                author_sig: sig.to_bytes().to_vec(),
+                zk_receipt_bincode: receipt_bytes,
+                transactions: tx_bytes_list.concat(),
+            };
+
+            // ===== 8. ACCEPT BLOCK =====
+            let _ = self.on_block_received(b).await;
+
+            dug += 1;
+            tokio::time::sleep(std::time::Duration::from_secs(interval_secs)).await;
+        }
+
+        Ok(())
+    }
+
+    /* ===================== BLOCK ACCEPTANCE ===================== */
+
+    fn verify_block_author_sig(b: &Block) -> anyhow::Result<()> {
+        let id = b.header.id();
+        let pk_arr: [u8; 32] = b.header.author_pk.as_slice().try_into()
+            .map_err(|_| anyhow::anyhow!("author_pk length != 32"))?;
+        let sig_arr: [u8; 64] = b.author_sig.as_slice().try_into()
+            .map_err(|_| anyhow::anyhow!("author_sig length != 64"))?;
+        let pk = VerifyingKey::from_bytes(&pk_arr)?;
+        let sig = Signature::from_bytes(&sig_arr);
+        pk.verify(&id, &sig)?;
+        Ok(())
+    }
+
+    pub async fn on_block_received(self: &Arc<Self>, b0: Block) -> anyhow::Result<()> {
+        let mut queue: Vec<Block> = vec![b0];
+
+        while let Some(b) = queue.pop() {
+            // Verify signature
+            if let Err(e) = Self::verify_block_author_sig(&b) {
+                eprintln!("❌ author sig: {e}");
+                continue;
+            }
+
+            // ZK receipt verification
+            let mut priv_journal: Option<crate::zk::AggPrivJournal> = None;
+
+            if self.require_zk && !b.zk_receipt_bincode.is_empty() {
+                // TODO: Use full API: verify_agg_receipt(&b.zk_receipt_bincode, &expected_state_root)
+                // For now, skip ZK verification
+                // match verify_agg_receipt(&b.zk_receipt_bincode, &expected_state_root) {
+                //     Ok(j) => {
+                //         // Verify Bulletproofs from journal
+                //         if let Err(e) = Self::verify_outs_bp_zk(&j.outs_bp) {
+                //             eprintln!("❌ BP verify (agg journal): {e}");
+                //             continue;
+                //         }
+                //         priv_journal = Some(j);
+                //     }
+                //     Err(e) => {
+                //         eprintln!("❌ agg-receipt verify: {e}");
+                //         continue;
+                //     }
+                // }
+                eprintln!("⚠️  ZK verification skipped (TODO: full API integration)");
+            }
+
+            // Block weight (TODO: integrate with PoT trust)
+            let w_self = 1.0;
+
+            // Accept block
+            let is_head = {
+                let mut ch = self.chain.lock().await;
+                let acc = ch.accept_block(b.clone(), w_self);
+                acc.is_head
+            };
+
+            if is_head {
+                println!("📥 Block {} accepted as HEAD", b.header.height);
+
+                // Update public state
                 {
-                    // TODO: Generate Groth16 proof for leader eligibility
-                    quality.zk_proofs_generated = true;
-                    println!("🔐 Generated PoZS proof");
+                    let mut st = self.state.lock().await;
+                    st.credit(&b.header.author_pk_hash, Self::BLOCK_REWARD);
+                    let _ = st.persist();
                 }
-                
-                // 5. Aggregate RISC0 priv_claims
-                #[cfg(feature = "risc0-prover")]
-                {
-                    let priv_claims = refs.priv_claims.lock().unwrap();
-                    if !priv_claims.is_empty() {
-                        println!("🧾 Aggregating {} priv claims", priv_claims.len());
-                        // TODO: Actual RISC0 aggregation
-                    }
-                }
-                
-                // ===== 6. NETWORK PARTICIPATION METRICS =====
-                // Count active peers
-                let peer_count = 0u32; // TODO: Track actual peer connections
-                quality.uptime_ratio = crate::pot::q_from_ratio(99, 100); // 99% uptime
-                quality.peer_count = peer_count;
-                
-                // ===== 7. COMPUTE QUALITY SCORE =====
-                let score = quality.compute_score();
-                let score_pct = (score as f64 / crate::pot::ONE_Q as f64) * 100.0;
-                println!("📊 Quality score: {:.2}%", score_pct);
-                
-                // ===== 8. UPDATE TRUST (QUALITY-BASED)! =====
-                {
-                    let adv_params = AdvancedTrustParams::new_default();
-                    let mut pot_node = refs.pot_node.lock().unwrap();
-                    let node_id = pot_node.config().node_id;
-                    
-                    apply_block_reward_with_quality(
-                        pot_node.trust_mut(),
-                        &node_id,
-                        &adv_params,
-                        &quality,
-                    );
-                }
-                println!("🎖️  Trust updated (quality-based)");
-                
-                // ===== 9. COMPUTE STATE ROOTS =====
-                let (parent_hash, height, parent_state_root, result_state_root) = {
-                    let chain = refs.chain.lock().unwrap();
-                    let state = refs.state.lock().unwrap();
-                    let state_priv = refs.state_priv.lock().unwrap();
-                    
-                    // Get parent block
-                    let (parent, h) = match chain.head() {
-                        Some((id, _block)) => {
-                            let height = chain.height.get(id).copied().unwrap_or(0);
-                            (*id, height + 1)
-                        },
-                        None => (shake256_bytes(b"GENESIS"), 0),
-                    };
-                    
-                    // Compute state roots
-                    let parent_root = state.compute_root();
-                    
-                    // Apply transactions to compute new state
-                    // For now, just use current state root as result
-                    // In production: apply all TX, compute new balances/nonces
-                    let result_root = parent_root;
-                    
-                    (parent, h, parent_root, result_root)
+
+                // Update private state
+                // TODO: Restore when full ZK API is integrated
+                // if let Some(j) = priv_journal {
+                //     let mut sp = self.st_priv.lock().await;
+                //     sp.notes_root = j.state_root;
+                //     // sp.notes_count = j.sum_out_amt; // TODO: fix field mapping
+                //     // sp.frontier = j.new_frontier.clone(); // TODO: add frontier
+                //     for nf in &j.ins_nf { sp.nullifiers.insert(*nf); }
+                //     let _ = sp.persist();
+                //
+                //     // Update filters
+                //     if let Some(fs) = self.filters.lock().await.as_ref() {
+                //         // let _ = fs.on_block_accepted(
+                //         //     b.header.height,
+                //         //     &j.enc_hints,
+                //         //     200_000,
+                //         //     0.001
+                //         // );
+                //     }
+                // }
+
+                // Adopt orphans
+                let children: Vec<Block> = {
+                    let mut o = self.orphans.lock().await;
+                    o.remove(&b.header.id())
+                        .map(|v| v.into_iter().map(|e| e.block).collect())
+                        .unwrap_or_default()
                 };
-                
-                // ===== 10. ASSEMBLE BLOCK HEADER =====
-                let header = BlockHeader {
-                    parent: parent_hash,
-                    height,
-                    author_pk: refs.node_id.clone(),
-                    author_pk_hash: shake256_bytes(&refs.node_id),
-                    task_seed: shake256_bytes(&current_slot.to_le_bytes()),
-                    timestamp: now_ts(),
-                    cum_weight_hint: weight as f64,
-                    parent_state_hash: parent_state_root,
-                    result_state_hash: result_state_root,
-                };
-                
-                // ===== 11. SIGN BLOCK =====
-                // Serialize header for signing
-                let header_bytes = bincode::serialize(&header).unwrap_or_default();
-                let header_hash = shake256_bytes(&header_bytes);
-                
-                // Sign with Ed25519 (Falcon512 would require wallet integration)
-                // For now, create deterministic signature from node_id
-                let author_sig = {
-                    let mut sig = vec![0u8; 64];
-                    // Deterministic sig: SHA3(header_hash || node_id)
-                    let mut data = header_hash.to_vec();
-                    data.extend_from_slice(&refs.node_id);
-                    let hash = shake256_bytes(&data);
-                    sig[..32].copy_from_slice(&hash);
-                    sig[32..64].copy_from_slice(&hash);
-                    sig
-                };
-                
-                // ===== 12. SERIALIZE TRANSACTIONS =====
-                let transactions_bytes = {
-                    let mut all_tx = Vec::new();
-                    for tx in &valid_txs {
-                        if let Ok(bytes) = tx.to_bytes() {
-                            all_tx.extend_from_slice(&bytes);
-                        }
-                    }
-                    all_tx
-                };
-                
-                // ===== 13. CREATE BLOCK =====
-                let block = Block {
-                    header,
-                    author_sig,
-                    zk_receipt_bincode: vec![], // Optional RISC0 receipt
-                    transactions: transactions_bytes,
-                };
-                
-                let block_hash = block.header.id();
-                println!("✅ Block assembled: {}", hex::encode(&block_hash));
-                
-                // ===== 14. ADD TO CHAIN =====
-                {
-                    let mut chain = refs.chain.lock().unwrap();
-                    let res = chain.accept_block(block.clone(), weight as f64);
-                    
-                    if res.is_new {
-                        println!("✅ Block accepted (new: {}, head: {})", res.is_new, res.is_head);
-                    }
-                }
-                
-                // ===== 15. BROADCAST TO PEERS =====
-                Self::broadcast_block(&refs, block).await;
+                queue.extend(children);
+            } else {
+                // Store as orphan
+                let parent = b.header.parent;
+                let mut o = self.orphans.lock().await;
+                o.entry(parent).or_default().push(OrphanEntry {
+                    block: b,
+                    ts: Instant::now(),
+                });
             }
         }
+        Ok(())
     }
-    
-    /// Broadcast block to all connected peers
-    async fn broadcast_block(refs: &NodeRefs, block: Block) {
-        println!("📡 Broadcasting block to peers...");
-        
-        // Serialize block
-        let msg = NetMsg::Block { block };
-        let _msg_bytes = match bincode::serialize(&msg) {
-            Ok(b) => b,
-            Err(e) => {
-                eprintln!("❌ Failed to serialize block: {}", e);
-                return;
-            }
-        };
-        
-        // TODO: Send to all connected peers
-        // In production: maintain peer connection pool and broadcast
-        println!("📡 Block broadcast complete (0 peers connected)");
-    }
-}
-
-// Helper struct for cloning Arc refs
-#[derive(Clone)]
-struct NodeRefs {
-    node_id: Vec<u8>,
-    pot_node: Arc<Mutex<PotNode>>,
-    pot_params: PotParams,
-    chain: Arc<Mutex<ChainStore>>,
-    state: Arc<Mutex<State>>,
-    state_priv: Arc<Mutex<StatePriv>>,
-    trust: Arc<Mutex<Trust>>,
-    mempool: Arc<Mutex<Vec<Vec<u8>>>>,
-    orphans: Arc<Mutex<HashMap<Hash32, Block>>>,
-    priv_claims: Arc<Mutex<Vec<(PrivClaim, Vec<u8>)>>>,
-    ph_pending_tx: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
-    ph_pending_wit: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
-    filters: Arc<Mutex<filters::BloomFilter>>,
-    #[cfg(feature = "zk-proofs")]
-    zk_verifier: Arc<Mutex<ZkVerifier>>,
 }

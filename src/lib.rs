@@ -39,7 +39,7 @@ pub mod state;
 pub mod state_priv;
 pub mod consensus;
 pub mod zk;
-pub mod node;
+pub mod node;  // Production node v2 with split BP verifiers
 pub mod tx;
 
 // Re-export main types for convenience

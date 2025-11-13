@@ -4,9 +4,14 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use anyhow::Result;
 
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tt_priv_cli::pot::{PotParams, TrustParams, q_from_ratio};
 use tt_priv_cli::pot_node::{PotNode, PotNodeConfig, GenesisValidator};
-use tt_priv_cli::node::Node;
+use tt_priv_cli::node::NodeV2;
+use tt_priv_cli::consensus::Trust;
+use tt_priv_cli::state::State;
+use tt_priv_cli::state_priv::StatePriv;
 use tt_priv_cli::crypto_kmac_consensus::kmac256_hash;
 
 #[derive(Parser, Debug)]
@@ -99,18 +104,54 @@ async fn main() -> Result<()> {
             
             let genesis_beacon = kmac256_hash(b"GENESIS_RANDAO", &[b"TT_BLOCKCHAIN_V1"]);
             let pot_node = PotNode::new(pot_config, genesis_validators, genesis_beacon);
+            let pot_node_arc = Arc::new(Mutex::new(pot_node));
+            
+            // Initialize state
+            std::fs::create_dir_all(&data_dir)?;
+            let state_path = data_dir.join("state.json");
+            let state = if state_path.exists() {
+                State::open(state_path)?
+            } else {
+                State::new()
+            };
+            let state_arc = Arc::new(Mutex::new(state));
+            
+            let state_priv_path = data_dir.join("state_priv.json");
+            let state_priv = if state_priv_path.exists() {
+                StatePriv::open(state_priv_path)?
+            } else {
+                StatePriv::new()
+            };
+            let state_priv_arc = Arc::new(Mutex::new(state_priv));
+            
+            // Create Trust state (simple version)
+            let trust = Trust::new();
             
             // Create blockchain node
-            let node = Node::new(
-                node_id_bytes,
-                listen.clone(),
-                data_dir.clone(),
+            let node = NodeV2::new(
+                trust,
+                false, // require_zk = false for testing
+                pot_node_arc.clone(),
                 pot_params,
-                pot_node,
-            )?;
+                state_arc.clone(),
+                state_priv_arc.clone(),
+            );
+            let node_arc = Arc::new(node);
             
-            // Start node
-            node.start().await?;
+            // Initialize Bloom filters
+            node_arc.init_filters(&data_dir.join("filters").to_string_lossy(), 1000).await?;
+            
+            // Start network listener
+            node_arc.start_listener(&listen).await?;
+            
+            // Start mining loop
+            let node_mining = node_arc.clone();
+            let seed = node_id_32;
+            tokio::spawn(async move {
+                if let Err(e) = node_mining.mine_loop(0, 6, seed).await {
+                    eprintln!("⛏️  Mining error: {}", e);
+                }
+            });
             
             println!("✅ Node started successfully!");
             println!("📡 Listening on {}", listen);
