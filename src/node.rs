@@ -5,7 +5,7 @@
 //! - Real ZK aggregation with fanout
 //! - Wbudowane Bloom filters
 //! - Orphan pool z timestampami
-//! - Ed25519 signing
+//! - Falcon-512 Post-Quantum signing
 //! - PoT consensus integration
 
 #![allow(dead_code)]
@@ -16,8 +16,10 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::Mutex;
 
-use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
 use serde::{Serialize, Deserialize};
+
+// Post-Quantum signatures
+use crate::falcon_sigs::{FalconSecretKey, FalconPublicKey, falcon_sk_from_bytes, falcon_sign_block, falcon_verify_block, falcon_pk_to_bytes, BlockSignature};
 
 use crate::core::{Block, BlockHeader, Hash32, now_ts, bytes32};
 use crate::chain::ChainStore;
@@ -394,14 +396,19 @@ impl NodeV2 {
         interval_secs: u64,
         seed32: [u8;32],
     ) -> anyhow::Result<()> {
-        let (sk, pk) = {
-            let sk = SigningKey::from_bytes(&seed32);
-            let pk = VerifyingKey::from(&sk);
-            (sk, pk)
-        };
-
-        let author_pk = pk.as_bytes().to_vec();
+        // Generate Falcon512 keypair
+        // NOTE: In production, derive deterministically from seed or load from storage
+        // For now, generate a fresh keypair (this means node ID changes each restart)
+        use crate::crypto_kmac_consensus::kmac256_hash;
+        use crate::falcon_sigs::falcon_keypair;
+        
+        let (pk, sk) = falcon_keypair();
+        
+        let author_pk = falcon_pk_to_bytes(&pk).to_vec();
         let author_pk_hash = bytes32(&author_pk);
+        
+        // Log node identity
+        println!("🔐 Falcon-512 Node ID: {}", hex::encode(&author_pk_hash));
 
         let mut dug = 0u64;
         loop {
@@ -464,13 +471,14 @@ impl NodeV2 {
             };
             let id = hdr.id();
 
-            // ===== 6. SIGN =====
-            let sig = sk.sign(&id);
+            // ===== 6. SIGN (Falcon-512) =====
+            let sig = falcon_sign_block(&id, &sk);
 
             // ===== 7. ASSEMBLE BLOCK =====
             let b = Block {
                 header: hdr,
-                author_sig: sig.to_bytes().to_vec(),
+                author_sig: bincode::serialize(&sig)
+                    .map_err(|e| anyhow::anyhow!("Sig serialize: {}", e))?,
                 zk_receipt_bincode: receipt_bytes,
                 transactions: tx_bytes_list.concat(),
             };
@@ -489,13 +497,18 @@ impl NodeV2 {
 
     fn verify_block_author_sig(b: &Block) -> anyhow::Result<()> {
         let id = b.header.id();
-        let pk_arr: [u8; 32] = b.header.author_pk.as_slice().try_into()
-            .map_err(|_| anyhow::anyhow!("author_pk length != 32"))?;
-        let sig_arr: [u8; 64] = b.author_sig.as_slice().try_into()
-            .map_err(|_| anyhow::anyhow!("author_sig length != 64"))?;
-        let pk = VerifyingKey::from_bytes(&pk_arr)?;
-        let sig = Signature::from_bytes(&sig_arr);
-        pk.verify(&id, &sig)?;
+        
+        // Parse Falcon-512 public key (897 bytes expected)
+        use crate::falcon_sigs::{falcon_pk_from_bytes, BlockSignature};
+        let pk = falcon_pk_from_bytes(&b.header.author_pk)
+            .map_err(|e| anyhow::anyhow!("Invalid Falcon PK: {}", e))?;
+        
+        // Deserialize signature
+        let sig: BlockSignature = bincode::deserialize(&b.author_sig)
+            .map_err(|e| anyhow::anyhow!("Invalid Falcon sig: {}", e))?;
+        
+        // Verify
+        falcon_verify_block(&id, &sig, &pk)?;
         Ok(())
     }
 
