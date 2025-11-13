@@ -41,6 +41,7 @@ pub mod consensus;
 pub mod zk;
 pub mod node;  // Production node v2 with split BP verifiers
 pub mod tx;
+pub mod cpu_proof; // CPU-only micro PoW and proof metrics
 
 // Re-export main types for convenience
 pub use pot::{
