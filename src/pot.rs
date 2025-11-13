@@ -583,7 +583,7 @@ pub struct LeaderWitness {
 }
 
 #[inline]
-fn elig_hash(beacon: &[u8; 32], slot: u64, who: &NodeId) -> u64 {
+pub fn elig_hash(beacon: &[u8; 32], slot: u64, who: &NodeId) -> u64 {
     let hash = kmac256_hash(b"ELIG.v1", &[
         beacon,
         &slot.to_le_bytes(),
@@ -596,12 +596,12 @@ fn elig_hash(beacon: &[u8; 32], slot: u64, who: &NodeId) -> u64 {
 }
 
 #[inline]
-fn bound_u64(p_q: Q) -> u64 {
+pub fn bound_u64(p_q: Q) -> u64 {
     (((p_q as u128) << 32).min(u128::from(u64::MAX))) as u64
 }
 
 #[inline]
-fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
+pub fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
     // Ensure minimum sum_weights_q to avoid division issues
     let sum = sum_weights_q.max(ONE_Q / 1_000_000); // Minimum 0.000001
     // ✅ FIXED: Use linear combination (2/3 trust + 1/3 stake)

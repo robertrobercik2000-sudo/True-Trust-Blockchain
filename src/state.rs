@@ -59,6 +59,26 @@ impl State {
         }
         Ok(())
     }
+    
+    /// Compute Merkle root of current state
+    pub fn compute_root(&self) -> crate::core::Hash32 {
+        use crate::core::shake256_bytes;
+        
+        // Serialize all state components
+        let balances_bytes = bincode::serialize(&self.balances).unwrap_or_default();
+        let trust_bytes = bincode::serialize(&self.trust).unwrap_or_default();
+        let keyset_bytes = bincode::serialize(&self.keyset).unwrap_or_default();
+        let nonces_bytes = bincode::serialize(&self.nonces).unwrap_or_default();
+        
+        // Combine and hash
+        let mut combined = Vec::new();
+        combined.extend_from_slice(&balances_bytes);
+        combined.extend_from_slice(&trust_bytes);
+        combined.extend_from_slice(&keyset_bytes);
+        combined.extend_from_slice(&nonces_bytes);
+        
+        shake256_bytes(&combined)
+    }
 
     pub fn credit(&mut self, who: &Hash32, amt: u64) {
         *self.balances.entry(*who).or_insert(0) += amt;

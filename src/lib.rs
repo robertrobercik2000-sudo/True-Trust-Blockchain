@@ -40,6 +40,7 @@ pub mod state_priv;
 pub mod consensus;
 pub mod zk;
 pub mod node;
+pub mod tx;
 
 // Re-export main types for convenience
 pub use pot::{

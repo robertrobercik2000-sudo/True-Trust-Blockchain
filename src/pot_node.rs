@@ -177,6 +177,94 @@ pub struct PotNode {
 }
 
 impl PotNode {
+    /// Returns current epoch from active snapshot
+    pub fn current_epoch(&self) -> u64 {
+        self.snapshot.epoch
+    }
+    
+    /// Computes current slot based on system time and slot duration
+    /// Note: In production, this should be synchronized via NTP or beacon chain
+    pub fn current_slot(&self) -> u64 {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default();
+        let slot_secs = self.config.slot_duration.as_secs();
+        if slot_secs == 0 { return 0; }
+        (now.as_secs() / slot_secs) % self.config.epoch_length
+    }
+    
+    /// Checks if this node is eligible for the given slot
+    /// Returns Some(weight) if eligible, None otherwise
+    pub fn check_eligibility(&self, epoch: u64, slot: u64) -> Option<u128> {
+        use crate::pot::{elig_hash, prob_threshold_q, bound_u64};
+        
+        // Check if we're in the active set
+        if !self.registry.is_active(&self.config.node_id, self.config.params.min_bond) {
+            return None;
+        }
+        
+        // Get my stake and trust from snapshot
+        let my_stake_q = self.snapshot.stake_q_of(&self.config.node_id);
+        let my_trust_q = self.snapshot.trust_q_of(&self.config.node_id);
+        
+        if my_stake_q == 0 || self.snapshot.sum_weights_q == 0 {
+            return None;
+        }
+        
+        // Check epoch matches
+        if epoch != self.snapshot.epoch {
+            return None;
+        }
+        
+        // Compute probability threshold
+        let p_q = prob_threshold_q(
+            self.config.params.lambda_q,
+            my_stake_q,
+            my_trust_q,
+            self.snapshot.sum_weights_q
+        );
+        
+        // Compute eligibility hash
+        let beacon_val = self.beacon.value(epoch, slot);
+        let y = elig_hash(&beacon_val, slot, &self.config.node_id);
+        
+        // Check if we won
+        if y > bound_u64(p_q) {
+            return None;
+        }
+        
+        // Compute weight
+        let denom = u128::from(y).saturating_add(1);
+        let weight = (u128::from(u64::MAX) + 1) / denom;
+        Some(weight)
+    }
+    
+    /// Creates a LeaderWitness for the current node to prove eligibility
+    pub fn create_witness(&self, epoch: u64, slot: u64) -> Option<crate::pot::LeaderWitness> {
+        use crate::pot::LeaderWitness;
+        
+        // Verify we're eligible first
+        self.check_eligibility(epoch, slot)?;
+        
+        // Get my data from snapshot
+        let my_stake_q = self.snapshot.stake_q_of(&self.config.node_id);
+        let my_trust_q = self.snapshot.trust_q_of(&self.config.node_id);
+        
+        // Build Merkle proof
+        let weight_proof = self.snapshot.build_proof(&self.config.node_id)?;
+        
+        Some(LeaderWitness {
+            who: self.config.node_id,
+            slot,
+            epoch,
+            weights_root: self.snapshot.weights_root,
+            weight_proof,
+            stake_q: my_stake_q,
+            trust_q: my_trust_q,
+        })
+    }
+    
     /// Create a new node from genesis validators and beacon seed.
     pub fn new(
         config: PotNodeConfig,
@@ -227,6 +315,10 @@ impl PotNode {
     /// Trust ledger.
     pub fn trust(&self) -> &TrustState {
         &self.trust
+    }
+    /// Mutable trust ledger (for updates).
+    pub fn trust_mut(&mut self) -> &mut TrustState {
+        &mut self.trust
     }
     /// Current epoch snapshot (start-of-epoch weights).
     pub fn snapshot(&self) -> &EpochSnapshot {
