@@ -14,7 +14,7 @@ use tokio::io::AsyncReadExt;
 use tokio::time::{interval, Duration};
 use serde::{Deserialize, Serialize};
 
-use crate::core::{Hash32, Block, shake256_bytes};
+use crate::core::{Hash32, Block, shake256_bytes, now_ts, BlockHeader};
 use crate::chain::ChainStore;
 use crate::state::State;
 use crate::state_priv::StatePriv;
@@ -313,13 +313,124 @@ impl Node {
             
             println!("⛏️  Mining tick: epoch={}, slot={}", current_epoch, current_slot);
             
-            // TODO: Actual mining logic:
+            // ===== QUALITY-BASED MINING =====
+            
+            // Initialize quality metrics for this block
+            use crate::pot::{QualityMetrics, AdvancedTrustParams, apply_block_reward_with_quality};
+            let mut quality = QualityMetrics::default();
+            
             // 1. Check eligibility via PoT (elig_hash)
-            // 2. If eligible, create ZK proof via PoZS
-            // 3. Aggregate priv_claims via RISC0
-            // 4. Create Bulletproofs for range proofs
-            // 5. Assemble block + sign
-            // 6. Broadcast
+            // TODO: Actual PoT eligibility check
+            let i_won = false; // Placeholder
+            
+            if i_won {
+                quality.block_produced = true;
+                println!("🎉 WON slot {}! Creating block...", current_slot);
+                
+                // 2. Collect transactions from mempool
+                let txs = {
+                    let mp = refs.mempool.lock().unwrap();
+                    mp.clone()
+                };
+                quality.tx_count = txs.len() as u32;
+                println!("📦 Collected {} transactions", txs.len());
+                
+                // 3. Verify Bulletproofs (PRACA kryptograficzna!)
+                for tx_bytes in &txs {
+                    // Parse TX and verify Bulletproofs
+                    // TODO: Actual parsing
+                    quality.bulletproofs_count += 2; // Assume 2 outputs per TX
+                    
+                    // Verify each Bulletproof (~6ms per proof)
+                    // TODO: Actual verification
+                    let all_valid = true; // Placeholder
+                    if all_valid {
+                        quality.bulletproofs_valid += 2;
+                        quality.fees_collected += 1; // Assume 1 TT fee per TX
+                    }
+                }
+                
+                println!("✅ Verified {}/{} Bulletproofs", 
+                    quality.bulletproofs_valid, quality.bulletproofs_count);
+                
+                // 4. Generate PoZS ZK proof (optional, jeśli feature enabled)
+                #[cfg(feature = "zk-proofs")]
+                {
+                    // TODO: Generate Groth16 proof for leader eligibility
+                    quality.zk_proofs_generated = true;
+                    println!("🔐 Generated PoZS proof");
+                }
+                
+                // 5. Aggregate RISC0 priv_claims
+                #[cfg(feature = "risc0-prover")]
+                {
+                    let priv_claims = refs.priv_claims.lock().unwrap();
+                    if !priv_claims.is_empty() {
+                        println!("🧾 Aggregating {} priv claims", priv_claims.len());
+                        // TODO: Actual RISC0 aggregation
+                    }
+                }
+                
+                // 6. Network participation metrics
+                quality.uptime_ratio = crate::pot::q_from_ratio(99, 100); // 99% uptime
+                quality.peer_count = 12; // TODO: Actual peer count
+                
+                // 7. Compute quality score
+                let score = quality.compute_score();
+                let score_pct = (score as f64 / crate::pot::ONE_Q as f64) * 100.0;
+                println!("📊 Quality score: {:.2}%", score_pct);
+                
+                // 8. Update trust with quality-based reward!
+                let adv_params = AdvancedTrustParams::new_default();
+                let mut trust_state = crate::pot::TrustState::default(); // TODO: Use actual TrustState
+                let node_id: [u8; 32] = {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(&refs.node_id[..32.min(refs.node_id.len())]);
+                    arr
+                };
+                
+                apply_block_reward_with_quality(
+                    &mut trust_state,
+                    &node_id,
+                    &adv_params,
+                    &quality,
+                );
+                
+                println!("🎖️  Trust updated (quality-based)");
+                
+                // 9. Assemble block
+                let header = BlockHeader {
+                    parent: shake256_bytes(b"GENESIS"), // TODO: Actual parent
+                    height: 1, // TODO: Actual height
+                    author_pk: vec![0u8; 32], // TODO: Actual public key
+                    author_pk_hash: shake256_bytes(b"AUTHOR_PK"),
+                    task_seed: shake256_bytes(b"TASK"),
+                    timestamp: now_ts(),
+                    cum_weight_hint: 1.0,
+                    parent_state_hash: shake256_bytes(b"STATE"),
+                    result_state_hash: shake256_bytes(b"RESULT"),
+                };
+                
+                let block = Block {
+                    header,
+                    author_sig: vec![0u8; 64], // TODO: Sign with Falcon512
+                    zk_receipt_bincode: vec![], // TODO: Include RISC0 receipt
+                    transactions: vec![], // TODO: Serialize actual TXs
+                };
+                
+                // 10. Add to chain
+                let mut chain = refs.chain.lock().unwrap();
+                let w_self = 1.0; // TODO: Compute actual weight from PoT
+                let res = chain.accept_block(block.clone(), w_self);
+                
+                if res.is_new {
+                    println!("✅ Block mined! (head: {})", res.is_head);
+                }
+                
+                // 11. Broadcast block
+                // TODO: Broadcast to peers
+                println!("📡 Broadcasting block...");
+            }
         }
     }
 }

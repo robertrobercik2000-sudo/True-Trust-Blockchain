@@ -50,6 +50,22 @@ pub fn q_from_basis_points(bp: u32) -> Q {
 #[inline]
 fn qclamp01(x: Q) -> Q { x.min(ONE_Q) }
 
+/// Oblicza wagę validatora: (2/3) × trust + (1/3) × stake
+/// Model: Trust ma podwójną wagę względem stake
+#[inline]
+pub fn compute_weight_linear(stake_q: Q, trust_q: Q) -> Q {
+    // 2/3 trust
+    let two_thirds = q_from_ratio(2, 3);
+    let trust_component = qmul(qclamp01(trust_q), two_thirds);
+    
+    // 1/3 stake
+    let one_third = q_from_ratio(1, 3);
+    let stake_component = qmul(stake_q, one_third);
+    
+    // suma: (2/3)×trust + (1/3)×stake
+    qadd(trust_component, stake_component)
+}
+
 /* ===== Trust ===== */
 
 #[derive(Clone, Copy, Debug)]
@@ -95,6 +111,141 @@ impl TrustState {
         let t = self.get(who, p.init_q);
         self.set(*who, p.step(t));
     }
+}
+
+/* ===== Advanced Trust (Quality-Based) ===== */
+
+/// Quality metrics dla zaawansowanego trust calculation
+#[derive(Clone, Debug, Default)]
+pub struct QualityMetrics {
+    /// Czy validator wykopał blok?
+    pub block_produced: bool,
+    
+    /// Bulletproofs - kryptograficzna weryfikacja jako praca
+    pub bulletproofs_count: u32,
+    pub bulletproofs_valid: u32,
+    
+    /// ZK proofs (PoZS)
+    pub zk_proofs_generated: bool,
+    
+    /// Ekonomia
+    pub fees_collected: u64,      // Total fees w TT
+    pub tx_count: u32,            // Liczba transakcji w bloku
+    
+    /// Weryfikacja (dodatkowa praca)
+    pub blocks_verified: u32,
+    pub invalid_blocks_reported: u32,
+    
+    /// Network participation
+    pub uptime_ratio: Q,          // Q32.32: 0.0 - 1.0
+    pub peer_count: u32,
+}
+
+impl QualityMetrics {
+    /// Oblicza quality score: 0.0 - 1.0
+    /// Wagi:
+    ///   30% - Block production (wykopał blok?)
+    ///   25% - Bulletproofs quality (weryfikacja jako praca!)
+    ///   15% - ZK proofs (PoZS attached?)
+    ///   15% - Fees collected (ekonomia)
+    ///   15% - Network participation (uptime, peers)
+    pub fn compute_score(&self) -> Q {
+        let mut score = 0u64;
+        let max_score = 10_000u64;
+        
+        // 1. Block production (30% wagi = 3000 points)
+        if self.block_produced {
+            score += 3000;
+        }
+        
+        // 2. Bulletproofs quality (25% wagi = 2500 points)
+        //    Weryfikacja Bulletproofs to PRACA kryptograficzna!
+        //    20 proofs × 6ms = 120ms CPU → należy się reward
+        if self.bulletproofs_count > 0 {
+            let bp_ratio = (self.bulletproofs_valid as u64 * 2500) / (self.bulletproofs_count as u64);
+            score += bp_ratio;
+        }
+        
+        // 3. ZK proofs - PoZS (15% wagi = 1500 points)
+        if self.zk_proofs_generated {
+            score += 1500;
+        }
+        
+        // 4. Fees collected (15% wagi = 1500 points)
+        //    Więcej TX → więcej fees → więcej trust
+        //    Cap at 100 TT to prevent gaming
+        let fee_score = (self.fees_collected.min(100) * 15).min(1500);
+        score += fee_score;
+        
+        // 5. Network participation (15% wagi = 1500 points)
+        //    uptime_ratio już jest Q32.32 (0.0 - 1.0)
+        let uptime_score = qmul(self.uptime_ratio, q_from_ratio(1500, 10000));
+        score += uptime_score;
+        
+        // Normalize to [0, 1] w Q32.32
+        q_from_ratio(score, max_score)
+    }
+}
+
+/// Parametry dla zaawansowanego trust system
+#[derive(Clone, Copy, Debug)]
+pub struct AdvancedTrustParams {
+    pub base_alpha_q: Q,        // 0.95 (base decay)
+    pub base_beta_q: Q,         // 0.05 (base reward)
+    pub quality_multiplier: Q,  // 2.0 (bonus za jakość)
+    pub init_q: Q,              // 0.5 (initial trust)
+}
+
+impl AdvancedTrustParams {
+    /// Create new with defaults
+    pub fn new_default() -> Self {
+        Self {
+            base_alpha_q: q_from_ratio(95, 100),  // 0.95
+            base_beta_q: q_from_ratio(5, 100),    // 0.05
+            quality_multiplier: q_from_ratio(2, 1), // 2.0
+            init_q: q_from_ratio(1, 2),           // 0.5
+        }
+    }
+    
+    /// Aktualizacja trust na podstawie quality score
+    /// 
+    /// Formula:
+    ///   decayed = current_trust × alpha
+    ///   reward = base_beta × (1 + quality_multiplier × quality_score)
+    ///   new_trust = decayed + reward
+    /// 
+    /// Przykład (quality=0.95):
+    ///   reward = 0.05 × (1 + 2.0 × 0.95) = 0.145
+    ///   0.60 → 0.715 (+19%!)
+    pub fn step_with_quality(&self, current_trust: Q, quality_score: Q) -> Q {
+        // 1. Base decay (zawsze)
+        let decayed = qmul(current_trust, self.base_alpha_q);
+        
+        // 2. Quality-based reward
+        //    reward = base_beta × (1 + quality_multiplier × quality_score)
+        let quality_bonus = qmul(self.quality_multiplier, quality_score);
+        let reward_multiplier = qadd(ONE_Q, quality_bonus);
+        let reward = qmul(self.base_beta_q, reward_multiplier);
+        
+        // 3. Apply
+        let new_trust = qadd(decayed, reward);
+        
+        // Clamp to [0, 1]
+        qclamp01(new_trust)
+    }
+}
+
+/// Apply block reward z quality metrics
+pub fn apply_block_reward_with_quality(
+    trust_state: &mut TrustState,
+    who: &NodeId,
+    params: &AdvancedTrustParams,
+    metrics: &QualityMetrics,
+) {
+    let current = trust_state.get(who, params.init_q);
+    let quality = metrics.compute_score();
+    let new_trust = params.step_with_quality(current, quality);
+    trust_state.set(*who, new_trust);
 }
 
 /* ===== Registry (stake, klucze) ===== */
@@ -173,8 +324,9 @@ impl EpochSnapshot {
             .collect();
 
         let weights_root = merkle_root(&leaves);
+        // ✅ FIXED: Use linear combination (2/3 trust + 1/3 stake)
         let sum_weights_q = entries.iter()
-            .fold(0u64, |acc, e| acc.saturating_add(qmul(e.stake_q, e.trust_q)));
+            .fold(0u64, |acc, e| acc.saturating_add(compute_weight_linear(e.stake_q, e.trust_q)));
 
         Self {
             epoch,
@@ -200,7 +352,8 @@ impl EpochSnapshot {
     pub fn weight_of(&self, who: &NodeId) -> u128 {
         let stake_q = self.stake_q_of(who);
         let trust_q = self.trust_q_of(who);
-        qmul(stake_q, trust_q) as u128
+        // ✅ FIXED: Use linear combination (2/3 trust + 1/3 stake)
+        compute_weight_linear(stake_q, trust_q) as u128
     }
 
     /// Zwraca indeks liścia w `order`
@@ -451,7 +604,8 @@ fn bound_u64(p_q: Q) -> u64 {
 fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
     // Ensure minimum sum_weights_q to avoid division issues
     let sum = sum_weights_q.max(ONE_Q / 1_000_000); // Minimum 0.000001
-    let wi = qmul(stake_q, qclamp01(trust_q));
+    // ✅ FIXED: Use linear combination (2/3 trust + 1/3 stake)
+    let wi = compute_weight_linear(stake_q, trust_q);
     qclamp01(qmul(lambda_q, qdiv(wi, sum)))
 }
 
