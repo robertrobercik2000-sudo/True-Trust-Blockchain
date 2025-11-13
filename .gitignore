@@ -1,0 +1,22 @@
+# Build artifacts
+target/
+*.swp
+*.swo
+*~
+
+# Cargo files
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Wallet data
+*.wallet
+*.shard
+node_data/
