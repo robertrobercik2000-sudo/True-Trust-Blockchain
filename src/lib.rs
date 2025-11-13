@@ -17,6 +17,10 @@ pub mod snapshot;
 #[cfg(feature = "zk-proofs")]
 pub mod pozs_groth16;
 
+// Keccak/KMAC256 gadgets for zkSNARK circuits (requires zk-proofs feature)
+#[cfg(feature = "zk-proofs")]
+pub mod pozs_keccak;
+
 // Re-export main types for convenience
 pub use pot::{
     EpochSnapshot, LeaderWitness, MerkleProof, NodeId, PotParams, Q, RandaoBeacon,
