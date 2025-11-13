@@ -10,6 +10,7 @@
 pub mod crypto_kmac_consensus;
 pub mod pot;
 pub mod pot_node;
+pub mod pozs;
 pub mod snapshot;
 
 // Re-export main types for convenience
@@ -22,4 +23,8 @@ pub use pot::{
 pub use snapshot::{SnapshotWitnessExt, WeightWitnessV1};
 pub use pot_node::{
     GenesisValidator, NodeError, PotNode, PotNodeConfig, Proposal, SlotDecision, SlotWinner,
+};
+pub use pozs::{
+    AggregatedProof, ZkError, ZkLeaderWitness, ZkProof, ZkProver, ZkScheme, ZkVerifier,
+    verify_leader_zk,
 };
