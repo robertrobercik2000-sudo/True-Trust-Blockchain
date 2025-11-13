@@ -1,0 +1,1 @@
+Result<(ProvingKey<ark_ec::models::bn::Bn<ark_bn254::Config>>, VerifyingKey<ark_ec::models::bn::Bn<ark_bn254::Config>>), Box<(dyn StdError + 'static)>>
