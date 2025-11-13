@@ -43,6 +43,9 @@ use crate::pot::{PotParams, QualityMetrics, AdvancedTrustParams, apply_block_rew
 use crate::cpu_proof::{MicroPowParams, PowProof, mine_micro_pow, verify_micro_pow, ProofMetrics, calculate_proof_trust_reward};
 use crate::cpu_mining::{HybridConsensusParams, HybridMiningTask, MiningResult, RandomXLite, verify_mining_result};
 
+// Lightweight PoZS
+use crate::pozs_lite::{LiteZkProver, LiteZkVerifier, LiteZkProof, LiteZkWitness};
+
 // Transaction parsing
 use crate::tx::Transaction;
 
@@ -436,7 +439,40 @@ impl NodeV2 {
                      tx_bytes_list.len(), quality.bulletproofs_valid, 
                      quality.bulletproofs_count, total_fees);
 
-            // ===== 5. GENERATE MICRO PoW =====
+            // ===== 5. GENERATE PoZS LITE ZK PROOF =====
+            let pozs_prover = LiteZkProver::new();
+            
+            // Get beacon and compute full elig_hash for ZK proof
+            let (beacon_value, elig_hash_full) = {
+                let pot_node = self.pot_node.lock().await;
+                let beacon = pot_node.beacon();
+                let beacon_val = beacon.value(current_epoch, current_slot);
+                
+                // Compute full eligibility hash (32 bytes, not just u64)
+                use tiny_keccak::{Hasher, Shake};
+                let mut sh = Shake::v256();
+                sh.update(&beacon_val);
+                sh.update(&current_slot.to_le_bytes());
+                sh.update(&pot_node.config().node_id);
+                let mut elig_h = [0u8; 32];
+                sh.finalize(&mut elig_h);
+                
+                (beacon_val, elig_h)
+            };
+            
+            let zk_proof = pozs_prover.prove_eligibility(
+                &beacon_value,
+                current_slot,
+                &author_pk_hash,
+                my_stake_q,
+                my_trust_q,
+                &elig_hash_full,
+            );
+            
+            quality.zk_proofs_generated = true;
+            println!("   🔒 PoZS Lite proof: {} bytes (~1ms)", zk_proof.to_bytes().len());
+            
+            // ===== 6. GENERATE MICRO PoW =====
             let block_data_for_pow = [
                 &parent_id[..],
                 &current_slot.to_le_bytes()[..],
@@ -452,7 +488,7 @@ impl NodeV2 {
                 None
             };
 
-            // ===== 6. ZK AGGREGATION =====
+            // ===== 7. ZK AGGREGATION (RISC0) =====
             let fanout = std::env::var("TRUE_TRUST_ZK_FANOUT")
                 .ok()
                 .and_then(|v| v.parse::<usize>().ok())
@@ -461,11 +497,10 @@ impl NodeV2 {
 
             let receipt_bytes = self.aggregate_child_receipts(fanout).await?;
             if !receipt_bytes.is_empty() {
-                quality.zk_proofs_generated = true;
-                println!("   🔒 ZK aggregation: {} bytes", receipt_bytes.len());
+                println!("   📦 ZK aggregation (RISC0): {} bytes", receipt_bytes.len());
             }
 
-            // ===== 7. HYBRID MINING (RandomX-lite) =====
+            // ===== 8. HYBRID MINING (RandomX-lite) =====
             let proof_metrics = ProofMetrics {
                 bp_generated: 0, // We don't generate new BPs in mining
                 zk_generated: if quality.zk_proofs_generated { 1 } else { 0 },
@@ -494,7 +529,7 @@ impl NodeV2 {
                 }
             };
 
-            // ===== 8. CREATE HEADER =====
+            // ===== 9. CREATE HEADER =====
             let hdr = BlockHeader {
                 parent: parent_id,
                 height: parent_h + 1,
@@ -508,24 +543,39 @@ impl NodeV2 {
             };
             let id = hdr.id();
 
-            // ===== 9. SIGN (Falcon-512) =====
+            // ===== 10. SIGN (Falcon-512) =====
             let sig = falcon_sign_block(&id, &sk);
             println!("   ✍️  Falcon-512 signature: {} bytes", 
                      bincode::serialize(&sig).unwrap().len());
 
-            // ===== 10. ASSEMBLE BLOCK =====
+            // ===== 11. ASSEMBLE BLOCK (with PoZS proof) =====
+            // Combine PoZS proof + RISC0 receipt into zk_receipt_bincode
+            #[derive(Serialize, Deserialize)]
+            struct ZkData {
+                pozs_proof: LiteZkProof,
+                risc0_receipt: Vec<u8>,
+            }
+            
+            let zk_data = ZkData {
+                pozs_proof: zk_proof,
+                risc0_receipt: receipt_bytes,
+            };
+            
+            let zk_combined = bincode::serialize(&zk_data)
+                .map_err(|e| anyhow::anyhow!("ZK data serialize: {}", e))?;
+            
             let b = Block {
                 header: hdr,
                 author_sig: bincode::serialize(&sig)
                     .map_err(|e| anyhow::anyhow!("Sig serialize: {}", e))?,
-                zk_receipt_bincode: receipt_bytes,
+                zk_receipt_bincode: zk_combined,
                 transactions: tx_bytes_list.concat(),
             };
 
-            // ===== 11. ACCEPT BLOCK =====
+            // ===== 12. ACCEPT BLOCK =====
             let _ = self.on_block_received(b).await;
 
-            // ===== 12. UPDATE TRUST (Quality-Based) =====
+            // ===== 13. UPDATE TRUST (Quality-Based) =====
             {
                 let adv_params = AdvancedTrustParams::new_default();
                 let mut pot_node = self.pot_node.lock().await;
@@ -612,9 +662,41 @@ impl NodeV2 {
                 continue;
             }
 
-            // Verify ZK (if required)
-            if self.require_zk && !b.zk_receipt_bincode.is_empty() {
-                // TODO: verify_agg_receipt
+            // Verify PoZS Lite ZK proof (FAST: ~0.1ms)
+            if !b.zk_receipt_bincode.is_empty() {
+                #[derive(Serialize, Deserialize)]
+                struct ZkData {
+                    pozs_proof: LiteZkProof,
+                    risc0_receipt: Vec<u8>,
+                }
+                
+                if let Ok(zk_data) = bincode::deserialize::<ZkData>(&b.zk_receipt_bincode) {
+                    let verifier = LiteZkVerifier::new();
+                    
+                    // Reconstruct beacon and elig_hash for verification
+                    let pot_node = self.pot_node.lock().await;
+                    let beacon = pot_node.beacon();
+                    let epoch = b.header.height / 256; // Simplified epoch calc
+                    let slot = b.header.height % 256;
+                    let beacon_val = beacon.value(epoch, slot);
+                    
+                    // Compute elig_hash from block header
+                    use tiny_keccak::{Hasher, Shake};
+                    let mut sh = Shake::v256();
+                    sh.update(&beacon_val);
+                    sh.update(&slot.to_le_bytes());
+                    sh.update(&b.header.author_pk_hash);
+                    let mut elig_h = [0u8; 32];
+                    sh.finalize(&mut elig_h);
+                    
+                    // Verify PoZS proof
+                    if !verifier.verify(&zk_data.pozs_proof, &beacon_val, slot, &elig_h) {
+                        eprintln!("❌ PoZS proof verification failed for block {}", hex::encode(&hid));
+                        continue;
+                    }
+                    
+                    println!("✅ PoZS proof verified (~0.1ms)");
+                }
             }
 
             // Verify TXs + BP

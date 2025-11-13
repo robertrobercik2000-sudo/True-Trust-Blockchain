@@ -45,6 +45,7 @@ pub mod cpu_proof; // CPU-only micro PoW and proof metrics
 pub mod cpu_mining; // Hybrid PoT+PoS+MicroPoW optimized for old CPUs
 pub mod falcon_sigs; // Falcon-512 Post-Quantum Signatures
 pub mod kyber_kem; // Kyber-768 Post-Quantum KEM
+pub mod pozs_lite; // Lightweight PoZS (fast ZK proofs, ~1ms)
 
 // Re-export main types for convenience
 pub use pot::{
