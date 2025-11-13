@@ -1,63 +1,81 @@
 [package]
-name = "tt_priv_cli"
-version = "5.0.0"
+name = "tt_blockchain_node"
+version = "1.0.0"
 edition = "2021"
 authors = ["TRUE_TRUST Team"]
 license = "Apache-2.0"
-description = "TRUE_TRUST wallet CLI v5 (PQC: Falcon512 + ML-KEM/Kyber768, AEAD: GCM-SIV/XChaCha20, KDF with pepper, Shamir M-of-N shards)"
+description = "TRUE_TRUST blockchain node - PoT consensus + PoZS zkSNARK + PQ wallet"
+
+[[bin]]
+name = "tt-node"
+path = "src/main.rs"
 
 [dependencies]
+# Core
 anyhow = "1.0"
-clap = { version = "4.5", features = ["derive"] }
-rand = { version = "0.8", features = ["std"] }
-rpassword = "7.3"
+thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-zeroize = { version = "1.7", features = ["zeroize_derive"] }
-aes-gcm = "0.10"
-aes-gcm-siv = "0.11"
-chacha20poly1305 = "0.10"
+serde_json = "1.0"
+bincode = "1.3"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Crypto - Classical
+rand = { version = "0.8", features = ["std"] }
+sha2 = "0.10"
+sha3 = "0.10"
 ed25519-dalek = "2.1"
 x25519-dalek = "2"
-# Pin dependencies to avoid edition2024 requirement
-base64ct = "=1.6.0"
-curve25519-dalek = "4"
+aes-gcm-siv = "0.11"
+chacha20poly1305 = "0.10"
 argon2 = "0.5"
-dirs = "5.0"
-bech32 = "0.11"
-hex = "0.4"
-bincode = "1.3"
-sharks = "0.5"
-sha3 = "0.10"  # Used for KMAC256 (SHAKE256) and guest code
 
-# Post-Quantum Cryptography
+# Crypto - Post-Quantum
 pqcrypto-falcon = "0.3"
 pqcrypto-kyber = "0.8"
 pqcrypto-traits = "0.3"
 
-# JSON serialization for shards
-serde_json = "1.0"
+# Wallet utilities
+zeroize = { version = "1.7", features = ["zeroize_derive"] }
+rpassword = "7.3"
+hex = "0.4"
+bech32 = "0.11"
+base64ct = "=1.6.0"
+sharks = "0.5"
+dirs = "5.0"
 
-# Error handling
-thiserror = "1.0"
+# Networking (tokio async runtime)
+tokio = { version = "1.41", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+futures = "0.3"
+bytes = "1.8"
 
-# SHA256 for Merkle trees
-sha2 = "0.10"
+# P2P networking - simple TCP (avoiding libp2p version conflicts)
+# libp2p = { version = "0.53", features = ["tcp", "noise", "yamux", "gossipsub", "kad", "identify", "ping"] }
 
-# ZK proof system (Groth16 over BN254) - optional feature
+# Storage
+sled = "0.34"  # Embedded key-value store
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# ZK proof system (optional)
 ark-std = { version = "0.4", default-features = false, optional = true }
 ark-ff = { version = "0.4", default-features = false, optional = true }
 ark-ec = { version = "0.4", default-features = false, optional = true }
 ark-bn254 = { version = "0.4", default-features = false, features = ["curve"], optional = true }
 ark-groth16 = { version = "0.4", default-features = false, optional = true }
 ark-snark = { version = "0.4", default-features = false, optional = true }
-rand_chacha = { version = "0.3", optional = true }
 ark-relations = { version = "0.4", default-features = false, optional = true }
 ark-r1cs-std = { version = "0.4", default-features = false, optional = true }
 ark-crypto-primitives = { version = "0.4", default-features = false, features = ["r1cs"], optional = true }
 ark-serialize = { version = "0.4", default-features = false, optional = true }
+rand_chacha = { version = "0.3", optional = true }
 
 [features]
-default = []
+default = ["zk-proofs"]
 # Enable ZK proof support (Groth16/BN254)
 zk-proofs = [
     "ark-std/std",
@@ -78,3 +96,7 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
