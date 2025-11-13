@@ -1,0 +1,81 @@
+╔════════════════════════════════════════════════════════════════════════╗
+║         PROOF SYSTEM PERFORMANCE - REALISTIC BENCHMARKS                ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. BULLETPROOFS (64-bit Range Proof)                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Proving:     20-50 ms (single proof)                                   │
+│ Verifying:   5-8 ms (single proof)                                     │
+│ Proof Size:  672 bytes                                                 │
+│                                                                         │
+│ For 20 outputs:                                                        │
+│   Sequential:  500 ms                                                  │
+│   Parallel:    25-50 ms (8 cores)                                      │
+│   Cached:      1-10 ms (pre-computed)                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. GROTH16 (PoZS Eligibility Circuit)                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Setup:       5-10 seconds (one-time, trusted)                          │
+│ Proving:     300-500 ms (per block)                                    │
+│ Verifying:   2-5 ms                                                    │
+│ Proof Size:  192 bytes                                                 │
+│                                                                         │
+│ Circuit: ~1000 R1CS constraints                                        │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. RISC0 zkVM (Private Transaction Aggregation)                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Proving:     5-30 SECONDS (depends on program)                         │
+│ Verifying:   10-50 ms                                                  │
+│ Proof Size:  200-500 KB                                                │
+│                                                                         │
+│ Memory:      500 MB - 2 GB RAM                                         │
+│ ⚠️  WARNING: Too slow for per-block inclusion!                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+╔════════════════════════════════════════════════════════════════════════╗
+║         MINING TIMELINE (5-second slot)                                ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+WITHOUT OPTIMIZATIONS:
+  0ms       ┃ Slot begins
+  0.1ms     ┃ ✅ Eligibility check
+  1ms       ┃ Collect mempool
+  501ms     ┃ Bulletproofs (20 outputs, sequential)
+  951ms     ┃ PoZS proof (optional)
+  6951ms    ┃ RISC0 (optional) ❌ EXCEEDS SLOT!
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TOTAL: ~7 seconds (TOO SLOW!)
+
+WITH OPTIMIZATIONS (parallel + caching):
+  0ms       ┃ Slot begins
+  0.1ms     ┃ ✅ Eligibility check
+  1ms       ┃ Collect mempool
+  11ms      ┃ Bulletproofs (cached from mempool monitor)
+  461ms     ┃ PoZS proof (optional)
+  471ms     ┃ Create + sign block
+  480ms     ┃ 📡 Broadcast
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  [RISC0 continues in background, non-blocking]
+  TOTAL: 480ms ✅ FITS EASILY!
+
+╔════════════════════════════════════════════════════════════════════════╗
+║         FINAL ANSWER                                                   ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Q: Jak opóźni generowanie dowodu Bulletproofs?
+
+A: Z optymalizacjami (caching + parallel):
+   → Tylko 10-50ms opóźnienia! ✅
+
+   Bulletproofs są 10x SZYBSZE niż Groth16
+   i 100-500x SZYBSZE niż RISC0!
+
+   Prawdziwy bottleneck to RISC0 (5-30s),
+   ale można go defer do background.
+
+╚════════════════════════════════════════════════════════════════════════╝
