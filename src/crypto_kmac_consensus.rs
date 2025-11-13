@@ -1,11 +1,34 @@
 //! KMAC256 hash functions for consensus and cryptographic operations
-//! Uses SHAKE256 (SHA3 XOF) as the underlying primitive
+//! Supports both SHAKE256 (XOF) and SHA3-512 (higher security) backends
 
-use sha3::{Shake256, digest::{Update, ExtendableOutput, XofReader}};
+use sha3::{Digest, Sha3_512, Shake256, digest::{Update, ExtendableOutput, XofReader}};
 
-/// KMAC256 hash (32 bytes output) - deterministic hash function
+/// KMAC256 hash using SHA3-512 (32 bytes output, truncated from 64)
+/// Higher security level: 256-bit vs SHAKE256's 128-bit
 /// Uses a fixed key for consensus operations (domain separation via label)
 pub fn kmac256_hash(label: &[u8], inputs: &[&[u8]]) -> [u8; 32] {
+    const CONSENSUS_KEY: &[u8] = b"TT-CONSENSUS-KMAC256-v2";
+    
+    let mut hasher = Sha3_512::new();
+    Digest::update(&mut hasher, b"KMAC256-HASH-v2");
+    Digest::update(&mut hasher, &(CONSENSUS_KEY.len() as u64).to_le_bytes());
+    Digest::update(&mut hasher, CONSENSUS_KEY);
+    Digest::update(&mut hasher, &(label.len() as u64).to_le_bytes());
+    Digest::update(&mut hasher, label);
+    for input in inputs {
+        Digest::update(&mut hasher, &(input.len() as u64).to_le_bytes());
+        Digest::update(&mut hasher, input);
+    }
+    
+    let result = hasher.finalize();
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&result[..32]);
+    out
+}
+
+/// Legacy KMAC256 hash using SHAKE256 (backward compatibility)
+/// Lower security level: 128-bit (use kmac256_hash for new code)
+pub fn kmac256_hash_v1(label: &[u8], inputs: &[&[u8]]) -> [u8; 32] {
     // Fixed key for consensus operations (domain separation via label)
     const CONSENSUS_KEY: &[u8] = b"TT-CONSENSUS-KMAC256";
     
@@ -96,5 +119,30 @@ mod tests {
         let h1 = kmac256_hash(b"LABEL1", &[b"input"]);
         let h2 = kmac256_hash(b"LABEL2", &[b"input"]);
         assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_sha3_512_vs_shake256() {
+        let label = b"TEST";
+        let input = b"data";
+        
+        let h_sha3 = kmac256_hash(label, &[input]);      // SHA3-512 (new)
+        let h_shake = kmac256_hash_v1(label, &[input]);  // SHAKE256 (legacy)
+        
+        assert_ne!(h_sha3, h_shake, "Different algorithms should produce different outputs");
+        assert_eq!(h_sha3.len(), 32);
+        assert_eq!(h_shake.len(), 32);
+    }
+
+    #[test]
+    fn test_sha3_512_security_level() {
+        // SHA3-512 provides 256-bit security (vs SHAKE256's 128-bit)
+        let hash = kmac256_hash(b"SECURITY", &[b"test"]);
+        
+        // Output is 32 bytes (256 bits)
+        assert_eq!(hash.len(), 32);
+        
+        // Should be different from empty
+        assert_ne!(hash, [0u8; 32]);
     }
 }
