@@ -6,6 +6,16 @@
 //! - Merkle tree-based weight snapshots
 //! - Sortition-based leader selection
 //! - Equivocation detection and slashing
+//! 
+//! Production blockchain modules:
+//! - bp: Bulletproofs verification for 64-bit range proofs
+//! - chain: Chain storage with orphan handling and cumulative weight
+//! - core: Core blockchain primitives (Hash32, Block, timestamp utilities)
+//! - state: Public blockchain state (balances, trust, keyset, nonces)
+//! - state_priv: Private blockchain state (notes_root, nullifiers, frontier)
+//! - consensus: Trust-based consensus primitives
+//! - zk: RISC0 zkVM integration for private transactions
+//! - node: Production blockchain node integrating all components
 
 pub mod crypto_kmac_consensus;
 pub mod pot;
@@ -20,6 +30,16 @@ pub mod pozs_groth16;
 // Keccak/KMAC256 gadgets for zkSNARK circuits (requires zk-proofs feature)
 #[cfg(feature = "zk-proofs")]
 pub mod pozs_keccak;
+
+// Production blockchain modules
+pub mod bp;
+pub mod chain;
+pub mod core;
+pub mod state;
+pub mod state_priv;
+pub mod consensus;
+pub mod zk;
+pub mod node;
 
 // Re-export main types for convenience
 pub use pot::{

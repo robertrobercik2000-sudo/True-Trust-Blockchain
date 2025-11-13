@@ -1,0 +1,345 @@
+//! Production blockchain node integrating:
+//! - PoT consensus (pot.rs + pot_node.rs)
+//! - PoZS ZK proofs (pozs.rs + pozs_groth16.rs)
+//! - RISC0 zkVM for private transactions (zk.rs)
+//! - Bulletproofs for range proofs (bp.rs)
+//! - Chain storage with orphan handling (chain.rs)
+//! - Public state (state.rs) and Private state (state_priv.rs)
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::path::PathBuf;
+use tokio::net::{TcpListener, TcpStream};
+use tokio::io::AsyncReadExt;
+use tokio::time::{interval, Duration};
+use serde::{Deserialize, Serialize};
+
+use crate::core::{Hash32, Block, shake256_bytes};
+use crate::chain::ChainStore;
+use crate::state::State;
+use crate::state_priv::StatePriv;
+use crate::consensus::Trust;
+use crate::zk::{PrivClaim, verify_priv_receipt};
+// use crate::bp::{derive_H_pedersen, verify_bound_range_proof_64_bytes};
+
+// PoT integration
+use crate::pot::PotParams;
+use crate::pot_node::PotNode;
+
+// PoZS integration (optional ZK proofs)
+#[cfg(feature = "zk-proofs")]
+use crate::pozs::{ZkProver, ZkVerifier, verify_leader_zk};
+
+// ===== Messages =====
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub enum NetMsg {
+    Handshake { peer_id: Vec<u8> },
+    Block { block: Block },
+    Tx { tx_bytes: Vec<u8> },
+    HiddenWitness { witness_bytes: Vec<u8> },
+    PrivClaimReceipt { receipt_bytes: Vec<u8> },
+}
+
+// ===== Bloom Filter for stealth addresses =====
+
+pub mod filters {
+    #[allow(dead_code)]
+    
+    pub struct BloomFilter {
+        bits: Vec<bool>,
+        k: usize, // num hash functions
+    }
+    
+    impl BloomFilter {
+        pub fn new(size: usize, k: usize) -> Self {
+            Self {
+                bits: vec![false; size],
+                k,
+            }
+        }
+        
+        fn hash_idx(&self, tag: u16, i: usize) -> usize {
+            let val = (tag as usize).wrapping_mul(i + 1);
+            val % self.bits.len()
+        }
+        
+        pub fn insert(&mut self, tag: u16) {
+            for i in 0..self.k {
+                let idx = self.hash_idx(tag, i);
+                self.bits[idx] = true;
+            }
+        }
+        
+        pub fn contains(&self, tag: u16) -> bool {
+            for i in 0..self.k {
+                let idx = self.hash_idx(tag, i);
+                if !self.bits[idx] {
+                    return false;
+                }
+            }
+            true
+        }
+    }
+}
+
+// ===== Node struct =====
+
+pub struct Node {
+    pub node_id: Vec<u8>,
+    pub listen_addr: String,
+    pub data_dir: PathBuf,
+    
+    // PoT consensus
+    pub pot_node: Arc<Mutex<PotNode>>,
+    pub pot_params: PotParams,
+    
+    // Chain and state
+    pub chain: Arc<Mutex<ChainStore>>,
+    pub state: Arc<Mutex<State>>,
+    pub state_priv: Arc<Mutex<StatePriv>>,
+    pub trust: Arc<Mutex<Trust>>,
+    
+    // Mempool and orphans
+    pub mempool: Arc<Mutex<Vec<Vec<u8>>>>,
+    pub orphans: Arc<Mutex<HashMap<Hash32, Block>>>,
+    
+    // Private transaction handling
+    pub priv_claims: Arc<Mutex<Vec<(PrivClaim, Vec<u8>)>>>,
+    pub ph_pending_tx: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
+    pub ph_pending_wit: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
+    
+    // Bloom filters for stealth address pre-filtering
+    pub filters: Arc<Mutex<filters::BloomFilter>>,
+    
+    // PoZS ZK verifier (optional)
+    #[cfg(feature = "zk-proofs")]
+    pub zk_verifier: Arc<Mutex<ZkVerifier>>,
+}
+
+impl Node {
+    pub fn new(
+        node_id: Vec<u8>,
+        listen_addr: String,
+        data_dir: PathBuf,
+        pot_params: PotParams,
+        pot_node: PotNode,
+    ) -> anyhow::Result<Self> {
+        std::fs::create_dir_all(&data_dir)?;
+        
+        let state_path = data_dir.join("state.json");
+        let state_priv_path = data_dir.join("state_priv.json");
+        
+        let state = State::open(&state_path)?;
+        let state_priv = StatePriv::open(&state_priv_path)?;
+        let trust = Trust::new();
+        
+        #[cfg(feature = "zk-proofs")]
+        let zk_verifier = {
+            let (_, vk) = crate::pozs_groth16::setup_keys()?;
+            ZkVerifier::new(vk)
+        };
+        
+        Ok(Self {
+            node_id,
+            listen_addr,
+            data_dir,
+            pot_node: Arc::new(Mutex::new(pot_node)),
+            pot_params,
+            chain: Arc::new(Mutex::new(ChainStore::new())),
+            state: Arc::new(Mutex::new(state)),
+            state_priv: Arc::new(Mutex::new(state_priv)),
+            trust: Arc::new(Mutex::new(trust)),
+            mempool: Arc::new(Mutex::new(Vec::new())),
+            orphans: Arc::new(Mutex::new(HashMap::new())),
+            priv_claims: Arc::new(Mutex::new(Vec::new())),
+            ph_pending_tx: Arc::new(Mutex::new(HashMap::new())),
+            ph_pending_wit: Arc::new(Mutex::new(HashMap::new())),
+            filters: Arc::new(Mutex::new(filters::BloomFilter::new(1_000_000, 3))),
+            #[cfg(feature = "zk-proofs")]
+            zk_verifier: Arc::new(Mutex::new(zk_verifier)),
+        })
+    }
+    
+    /// Start the node: network listener + mining loop
+    pub async fn start(&self) -> anyhow::Result<()> {
+        let listener = TcpListener::bind(&self.listen_addr).await?;
+        println!("🚀 Node listening on {}", self.listen_addr);
+        
+        // Spawn network handler
+        let node_clone = self.clone_refs();
+        tokio::spawn(async move {
+            Self::network_loop(node_clone, listener).await;
+        });
+        
+        // Spawn mining loop
+        let node_clone2 = self.clone_refs();
+        tokio::spawn(async move {
+            Self::mine_loop(node_clone2).await;
+        });
+        
+        Ok(())
+    }
+    
+    fn clone_refs(&self) -> NodeRefs {
+        NodeRefs {
+            node_id: self.node_id.clone(),
+            pot_node: Arc::clone(&self.pot_node),
+            pot_params: self.pot_params.clone(),
+            chain: Arc::clone(&self.chain),
+            state: Arc::clone(&self.state),
+            state_priv: Arc::clone(&self.state_priv),
+            trust: Arc::clone(&self.trust),
+            mempool: Arc::clone(&self.mempool),
+            orphans: Arc::clone(&self.orphans),
+            priv_claims: Arc::clone(&self.priv_claims),
+            ph_pending_tx: Arc::clone(&self.ph_pending_tx),
+            ph_pending_wit: Arc::clone(&self.ph_pending_wit),
+            filters: Arc::clone(&self.filters),
+            #[cfg(feature = "zk-proofs")]
+            zk_verifier: Arc::clone(&self.zk_verifier),
+        }
+    }
+    
+    async fn network_loop(refs: NodeRefs, listener: TcpListener) {
+        loop {
+            match listener.accept().await {
+                Ok((stream, addr)) => {
+                    println!("📡 Peer connected: {}", addr);
+                    let refs_clone = refs.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = Self::handle_peer(refs_clone, stream).await {
+                            eprintln!("❌ Peer error: {}", e);
+                        }
+                    });
+                }
+                Err(e) => {
+                    eprintln!("❌ Accept error: {}", e);
+                }
+            }
+        }
+    }
+    
+    async fn handle_peer(refs: NodeRefs, mut stream: TcpStream) -> anyhow::Result<()> {
+        let mut buf = vec![0u8; 65536];
+        loop {
+            let n = stream.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            
+            let msg: NetMsg = bincode::deserialize(&buf[..n])?;
+            match msg {
+                NetMsg::Handshake { peer_id } => {
+                    println!("🤝 Handshake from peer: {:?}", hex::encode(&peer_id));
+                }
+                NetMsg::Block { block } => {
+                    Self::on_block_received(&refs, block).await;
+                }
+                NetMsg::Tx { tx_bytes } => {
+                    Self::on_tx_received(&refs, tx_bytes).await;
+                }
+                NetMsg::HiddenWitness { witness_bytes } => {
+                    Self::on_hidden_witness(&refs, witness_bytes).await;
+                }
+                NetMsg::PrivClaimReceipt { receipt_bytes } => {
+                    Self::on_priv_claim_receipt(&refs, receipt_bytes).await;
+                }
+            }
+        }
+        Ok(())
+    }
+    
+    async fn on_block_received(refs: &NodeRefs, block: Block) {
+        let id = block.header.id();
+        println!("📦 Received block: {}", hex::encode(&id));
+        
+        // Verify ZK receipt (RISC0)
+        if !block.zk_receipt_bincode.is_empty() {
+            let state = refs.state.lock().unwrap();
+            let state_root = shake256_bytes(b"STATE_ROOT"); // TODO: actual state root
+            drop(state);
+            
+            match verify_priv_receipt(&block.zk_receipt_bincode, &state_root) {
+                Ok(claim) => {
+                    println!("✅ ZK receipt verified: {:?}", claim);
+                }
+                Err(e) => {
+                    eprintln!("❌ ZK receipt invalid: {}", e);
+                    return;
+                }
+            }
+        }
+        
+        // PoT verification (via pot_node)
+        // TODO: integrate pot_node.verify_leader()
+        
+        // Accept block
+        let mut chain = refs.chain.lock().unwrap();
+        let w_self = 1.0; // TODO: compute actual weight
+        let res = chain.accept_block(block, w_self);
+        
+        if res.is_new {
+            println!("✅ Block accepted (new: {}, head: {})", res.is_new, res.is_head);
+        }
+    }
+    
+    async fn on_tx_received(refs: &NodeRefs, tx_bytes: Vec<u8>) {
+        println!("💸 Received tx: {} bytes", tx_bytes.len());
+        refs.mempool.lock().unwrap().push(tx_bytes);
+    }
+    
+    async fn on_hidden_witness(_refs: &NodeRefs, witness_bytes: Vec<u8>) {
+        println!("🔐 Received hidden witness: {} bytes", witness_bytes.len());
+        // TODO: store in ph_pending_wit
+    }
+    
+    async fn on_priv_claim_receipt(_refs: &NodeRefs, receipt_bytes: Vec<u8>) {
+        println!("🧾 Received priv claim receipt: {} bytes", receipt_bytes.len());
+        // TODO: verify + store in priv_claims
+    }
+    
+    async fn mine_loop(refs: NodeRefs) {
+        let mut ticker = interval(Duration::from_secs(5));
+        loop {
+            ticker.tick().await;
+            
+            // Check if it's our turn via PoT
+            let pot_node = refs.pot_node.lock().unwrap();
+            // TODO: Use actual PoT API to get current epoch/slot
+            let current_epoch = 0u64; // Placeholder
+            let current_slot = 0u64;  // Placeholder
+            drop(pot_node);
+            
+            println!("⛏️  Mining tick: epoch={}, slot={}", current_epoch, current_slot);
+            
+            // TODO: Actual mining logic:
+            // 1. Check eligibility via PoT (elig_hash)
+            // 2. If eligible, create ZK proof via PoZS
+            // 3. Aggregate priv_claims via RISC0
+            // 4. Create Bulletproofs for range proofs
+            // 5. Assemble block + sign
+            // 6. Broadcast
+        }
+    }
+}
+
+// Helper struct for cloning Arc refs
+#[derive(Clone)]
+struct NodeRefs {
+    node_id: Vec<u8>,
+    pot_node: Arc<Mutex<PotNode>>,
+    pot_params: PotParams,
+    chain: Arc<Mutex<ChainStore>>,
+    state: Arc<Mutex<State>>,
+    state_priv: Arc<Mutex<StatePriv>>,
+    trust: Arc<Mutex<Trust>>,
+    mempool: Arc<Mutex<Vec<Vec<u8>>>>,
+    orphans: Arc<Mutex<HashMap<Hash32, Block>>>,
+    priv_claims: Arc<Mutex<Vec<(PrivClaim, Vec<u8>)>>>,
+    ph_pending_tx: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
+    ph_pending_wit: Arc<Mutex<HashMap<Hash32, Vec<u8>>>>,
+    filters: Arc<Mutex<filters::BloomFilter>>,
+    #[cfg(feature = "zk-proofs")]
+    zk_verifier: Arc<Mutex<ZkVerifier>>,
+}

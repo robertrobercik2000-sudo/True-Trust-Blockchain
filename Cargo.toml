@@ -43,6 +43,11 @@ thiserror = "1.0"
 # SHA256 for Merkle trees
 sha2 = "0.10"
 
+# Production blockchain node dependencies
+tokio = { version = "1.38", features = ["full"] }
+tiny-keccak = { version = "2.0", features = ["cshake", "shake"] }
+merlin = "3.0"
+
 # ZK proof system (Groth16 over BN254) - optional feature
 ark-std = { version = "0.4", default-features = false, optional = true }
 ark-ff = { version = "0.4", default-features = false, optional = true }
@@ -72,6 +77,12 @@ zk-proofs = [
     "ark-serialize/std",
     "rand_chacha"
 ]
+# Enable RISC0 zkVM prover (requires RISC0 SDK)
+risc0-prover = []
+
+[[bin]]
+name = "tt_node"
+path = "src/bin/node_cli.rs"
 
 [profile.release]
 opt-level = 3
