@@ -13,6 +13,10 @@ pub mod pot_node;
 pub mod pozs;
 pub mod snapshot;
 
+// Groth16 circuit implementation (requires zk-proofs feature)
+#[cfg(feature = "zk-proofs")]
+pub mod pozs_groth16;
+
 // Re-export main types for convenience
 pub use pot::{
     EpochSnapshot, LeaderWitness, MerkleProof, NodeId, PotParams, Q, RandaoBeacon,
@@ -27,4 +31,12 @@ pub use pot_node::{
 pub use pozs::{
     AggregatedProof, ZkError, ZkLeaderWitness, ZkProof, ZkProver, ZkScheme, ZkVerifier,
     verify_leader_zk,
+};
+
+// Re-export Groth16 implementation when feature is enabled
+#[cfg(feature = "zk-proofs")]
+pub use pozs_groth16::{
+    deserialize_proof, deserialize_vk, prove_eligibility, serialize_proof, serialize_vk,
+    setup_keys, verify_eligibility, EligibilityCircuit, EligibilityPublicInputs,
+    EligibilityWitness,
 };
