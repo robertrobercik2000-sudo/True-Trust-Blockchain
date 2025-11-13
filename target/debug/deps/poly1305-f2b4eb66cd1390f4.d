@@ -1,0 +1,10 @@
+/workspace/target/debug/deps/libpoly1305-f2b4eb66cd1390f4.rmeta: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2/helpers.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/autodetect.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/soft.rs
+
+/workspace/target/debug/deps/poly1305-f2b4eb66cd1390f4.d: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2/helpers.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/autodetect.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/soft.rs
+
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/lib.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/avx2/helpers.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/autodetect.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/poly1305-0.8.0/src/backend/soft.rs:
