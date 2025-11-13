@@ -1,0 +1,134 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║              TRUE TRUST - SZYBKI PRZEWODNIK POLECEŃ               ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+📦 INSTALACJA
+═══════════════════════════════════════════════════════════════════
+
+# Pobierz kod
+git clone https://github.com/robertrobercik2000-sudo/True-Trust-Blockchain
+cd True-Trust-Blockchain
+
+# Zbuduj (wymaga Rust)
+cargo build --release
+
+# Czas: ~5-10 minut
+# Wynik: Dwa programy w ./target/release/
+
+
+💼 PORTFEL (WALLET)
+═══════════════════════════════════════════════════════════════════
+
+# Stwórz nowy portfel
+./target/release/tt_priv_cli wallet init
+
+# Sprawdź saldo
+./target/release/tt_priv_cli wallet balance
+
+# Wyślij pieniądze
+./target/release/tt_priv_cli wallet send \
+  --to <adres_odbiorcy> \
+  --amount 10
+
+# Otrzymaj adres (do pokazania innym)
+./target/release/tt_priv_cli wallet address
+
+# Backup (Shamir 3-of-5)
+./target/release/tt_priv_cli wallet backup \
+  --output ./backup_shares/
+
+# Odzyskaj z backup
+./target/release/tt_priv_cli wallet recover \
+  --shares ./share1.txt ./share2.txt ./share3.txt
+
+
+⛏️  NODE (KOPANIE)
+═══════════════════════════════════════════════════════════════════
+
+# Uruchom node
+./target/release/tt_node start \
+  --data-dir ./moj_node \
+  --listen 0.0.0.0:8333
+
+# Status node
+./target/release/tt_node status \
+  --data-dir ./moj_node
+
+# Node w tle (background)
+nohup ./target/release/tt_node start \
+  --data-dir ./moj_node \
+  --listen 0.0.0.0:8333 > node.log 2>&1 &
+
+# Zatrzymaj node
+pkill tt_node
+
+
+🔍 KEYSEARCH (Znajdź swoje transakcje)
+═══════════════════════════════════════════════════════════════════
+
+# Skanuj blockchain
+./target/release/tt_priv_cli keysearch scan
+
+# Skanuj z filtrem bloom (szybciej)
+./target/release/tt_priv_cli keysearch scan --bloom
+
+# Skanuj tylko nowe bloki (od wysokości X)
+./target/release/tt_priv_cli keysearch scan --from-height 1000
+
+
+📊 DIAGNOSTYKA
+═══════════════════════════════════════════════════════════════════
+
+# Pokaż logi node
+tail -f node.log
+
+# Sprawdź czy node działa
+ps aux | grep tt_node
+
+# Sprawdź port
+netstat -tuln | grep 8333
+
+# Sprawdź połączenia
+./target/release/tt_node peers --data-dir ./moj_node
+
+
+🔧 ZAAWANSOWANE
+═══════════════════════════════════════════════════════════════════
+
+# Build z ZK proofs (opcjonalne)
+cargo build --release --features zk-proofs
+
+# Build z RISC0 prover (wymaga dużo RAM)
+cargo build --release --features risc0-prover
+
+# Usuń cache (problemy z kompilacją)
+cargo clean
+
+
+🆘 POMOC
+═══════════════════════════════════════════════════════════════════
+
+# Portfel help
+./target/release/tt_priv_cli --help
+./target/release/tt_priv_cli wallet --help
+
+# Node help
+./target/release/tt_node --help
+./target/release/tt_node start --help
+
+
+═══════════════════════════════════════════════════════════════════
+        PRZYKŁADOWA SESJA (od zera do kopania)
+═══════════════════════════════════════════════════════════════════
+
+1. git clone https://github.com/robertrobercik2000-sudo/True-Trust-Blockchain
+2. cd True-Trust-Blockchain
+3. cargo build --release
+4. ./target/release/tt_priv_cli wallet init
+5. ./target/release/tt_node start --data-dir ./node --listen 0.0.0.0:8333
+
+... poczekaj na pierwszy blok ...
+
+6. ./target/release/tt_priv_cli wallet balance
+   → Zobaczysz swoje pierwsze monety! 💰
+
