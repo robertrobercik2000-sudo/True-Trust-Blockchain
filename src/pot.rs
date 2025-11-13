@@ -12,7 +12,7 @@ pub type Q = u64;                // Q32.32
 pub const ONE_Q: Q = 1u64 << 32; // 1.0
 
 #[inline]
-fn qmul(a: Q, b: Q) -> Q {
+pub fn qmul(a: Q, b: Q) -> Q {
     let z = (a as u128) * (b as u128);
     let shifted = z >> 32;
     // Clamp to u64::MAX to prevent overflow
@@ -20,7 +20,7 @@ fn qmul(a: Q, b: Q) -> Q {
 }
 
 #[inline]
-fn qadd(a: Q, b: Q) -> Q { a.saturating_add(b) }
+pub fn qadd(a: Q, b: Q) -> Q { a.saturating_add(b) }
 
 #[inline]
 fn qdiv(a: Q, b: Q) -> Q {

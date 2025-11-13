@@ -42,6 +42,7 @@ pub mod zk;
 pub mod node;  // Production node v2 with split BP verifiers
 pub mod tx;
 pub mod cpu_proof; // CPU-only micro PoW and proof metrics
+pub mod cpu_mining; // Hybrid PoT+PoS+MicroPoW optimized for old CPUs
 
 // Re-export main types for convenience
 pub use pot::{
