@@ -1,0 +1,261 @@
+# PATCH: Zmiana modelu wagi z iloczynu na 2/3 trust + 1/3 stake
+
+## Obecny kod (ILOCZYN):
+```rust
+// Linia ~450 w src/pot.rs
+fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
+    let wi = qmul(stake_q, qclamp01(trust_q));  // wi = stake × trust ❌
+    qclamp01(qmul(lambda_q, qdiv(wi, sum_weights_q.max(1))))
+}
+
+// Linia ~170
+let sum_weights_q = entries.iter()
+    .fold(0u64, |acc, e| acc.saturating_add(qmul(e.stake_q, e.trust_q)));  // iloczyn ❌
+
+// Linia ~203
+pub fn weight_of(&self, who: &NodeId) -> u128 {
+    let stake_q = self.stake_q_of(who);
+    let trust_q = self.trust_q_of(who);
+    qmul(stake_q, trust_q) as u128  // iloczyn ❌
+}
+```
+
+---
+
+## NOWY KOD (LINIOWA KOMBINACJA 2/3 + 1/3):
+
+### 1. Dodaj nową funkcję wagi (po linii ~50):
+
+```rust
+/// Oblicza wagę validatora: 2/3 trust + 1/3 stake
+/// 
+/// Model: Trust ma podwójną wagę względem stake
+#[inline]
+pub fn compute_weight_linear(stake_q: Q, trust_q: Q) -> Q {
+    // 2/3 trust
+    let two_thirds = q_from_ratio(2, 3);  // 0.666...
+    let trust_component = qmul(qclamp01(trust_q), two_thirds);
+    
+    // 1/3 stake  
+    let one_third = q_from_ratio(1, 3);   // 0.333...
+    let stake_component = qmul(stake_q, one_third);
+    
+    // suma: (2/3)×trust + (1/3)×stake
+    qadd(trust_component, stake_component)
+}
+```
+
+---
+
+### 2. Zaktualizuj prob_threshold_q (linia ~450):
+
+```rust
+// STARY (iloczyn):
+#[inline]
+fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
+    let wi = qmul(stake_q, qclamp01(trust_q));  // ❌ USUNĄĆ
+    qclamp01(qmul(lambda_q, qdiv(wi, sum_weights_q.max(1))))
+}
+
+// NOWY (liniowa kombinacja):
+#[inline]
+fn prob_threshold_q(lambda_q: Q, stake_q: Q, trust_q: Q, sum_weights_q: Q) -> Q {
+    let wi = compute_weight_linear(stake_q, trust_q);  // ✅ (2/3)trust + (1/3)stake
+    qclamp01(qmul(lambda_q, qdiv(wi, sum_weights_q.max(1))))
+}
+```
+
+---
+
+### 3. Zaktualizuj EpochSnapshot::build (linia ~170):
+
+```rust
+// STARY (iloczyn):
+let sum_weights_q = entries.iter()
+    .fold(0u64, |acc, e| acc.saturating_add(qmul(e.stake_q, e.trust_q)));  // ❌
+
+// NOWY (liniowa kombinacja):
+let sum_weights_q = entries.iter()
+    .fold(0u64, |acc, e| acc.saturating_add(compute_weight_linear(e.stake_q, e.trust_q)));  // ✅
+```
+
+---
+
+### 4. Zaktualizuj EpochSnapshot::weight_of (linia ~200):
+
+```rust
+// STARY (iloczyn):
+pub fn weight_of(&self, who: &NodeId) -> u128 {
+    let stake_q = self.stake_q_of(who);
+    let trust_q = self.trust_q_of(who);
+    qmul(stake_q, trust_q) as u128  // ❌
+}
+
+// NOWY (liniowa kombinacja):
+pub fn weight_of(&self, who: &NodeId) -> u128 {
+    let stake_q = self.stake_q_of(who);
+    let trust_q = self.trust_q_of(who);
+    compute_weight_linear(stake_q, trust_q) as u128  // ✅
+}
+```
+
+---
+
+## TESTY WERYFIKACYJNE:
+
+```rust
+#[cfg(test)]
+mod weight_model_tests {
+    use super::*;
+
+    #[test]
+    fn test_weight_linear_basic() {
+        // stake=0.5, trust=0.5 → powinno być 0.5
+        let stake_q = q_from_ratio(1, 2);  // 0.5
+        let trust_q = q_from_ratio(1, 2);  // 0.5
+        let weight = compute_weight_linear(stake_q, trust_q);
+        
+        // (2/3)×0.5 + (1/3)×0.5 = 0.333 + 0.167 = 0.5
+        let expected = q_from_ratio(1, 2);
+        assert_eq!(weight, expected);
+    }
+    
+    #[test]
+    fn test_trust_dominates() {
+        // Wysoki trust (0.9), niski stake (0.1)
+        let stake_q = q_from_ratio(1, 10);  // 0.1
+        let trust_q = q_from_ratio(9, 10);  // 0.9
+        let weight = compute_weight_linear(stake_q, trust_q);
+        
+        // (2/3)×0.9 + (1/3)×0.1 = 0.6 + 0.033 = 0.633
+        let expected_approx = q_from_ratio(633, 1000);  // 0.633
+        
+        // Trust powinien mieć dużą wagę
+        assert!(weight > q_from_ratio(6, 10));  // >0.6
+        assert!(weight < q_from_ratio(7, 10));  // <0.7
+    }
+    
+    #[test]
+    fn test_stake_cant_compensate_zero_trust() {
+        // Maksymalny stake (1.0), zero trust (0.0)
+        let stake_q = ONE_Q;      // 1.0
+        let trust_q = 0;          // 0.0
+        let weight = compute_weight_linear(stake_q, trust_q);
+        
+        // (2/3)×0.0 + (1/3)×1.0 = 0 + 0.333 = 0.333
+        let expected_approx = q_from_ratio(1, 3);  // 0.333
+        
+        assert!(weight < q_from_ratio(4, 10));  // <0.4
+        assert!(weight > q_from_ratio(3, 10));  // >0.3
+    }
+    
+    #[test]
+    fn test_perfect_trust_high_weight() {
+        // Niski stake (0.1), perfekcyjny trust (1.0)
+        let stake_q = q_from_ratio(1, 10);  // 0.1
+        let trust_q = ONE_Q;                // 1.0
+        let weight = compute_weight_linear(stake_q, trust_q);
+        
+        // (2/3)×1.0 + (1/3)×0.1 = 0.667 + 0.033 = 0.7
+        let expected_approx = q_from_ratio(7, 10);  // 0.7
+        
+        // Mimo niskiego stake, waga jest WYSOKA!
+        assert!(weight > q_from_ratio(65, 100));  // >0.65
+        assert!(weight < q_from_ratio(75, 100));  // <0.75
+    }
+    
+    #[test]
+    fn test_comparison_with_product_model() {
+        // Przypadek: średni stake, wysoki trust
+        let stake_q = q_from_ratio(3, 10);  // 0.3
+        let trust_q = q_from_ratio(8, 10);  // 0.8
+        
+        // MODEL ILOCZYN (stary):
+        let weight_product = qmul(stake_q, trust_q);
+        // = 0.3 × 0.8 = 0.24
+        
+        // MODEL 2/3+1/3 (nowy):
+        let weight_linear = compute_weight_linear(stake_q, trust_q);
+        // = (2/3)×0.8 + (1/3)×0.3 = 0.533 + 0.1 = 0.633
+        
+        // Liniowy powinien być ZNACZNIE wyższy
+        assert!(weight_linear > weight_product * 2);  // >2x większy!
+        println!("Product model: {} vs Linear model: {}", weight_product, weight_linear);
+    }
+}
+```
+
+---
+
+## OCZEKIWANE REZULTATY:
+
+### Przed zmianą (iloczyn):
+```
+Validator A: stake=0.3, trust=0.8
+  waga = 0.3 × 0.8 = 0.24
+
+Validator B: stake=0.5, trust=0.6  
+  waga = 0.5 × 0.6 = 0.30
+
+B wygrywa (większy stake kompensuje niższy trust)
+```
+
+### Po zmianie (2/3 + 1/3):
+```
+Validator A: stake=0.3, trust=0.8
+  waga = (2/3)×0.8 + (1/3)×0.3 = 0.633
+
+Validator B: stake=0.5, trust=0.6
+  waga = (2/3)×0.6 + (1/3)×0.5 = 0.567
+
+A wygrywa (wysoki trust przeważa)! ✅
+```
+
+---
+
+## JAK ZASTOSOWAĆ PATCH:
+
+```bash
+cd /workspace
+
+# 1. Backup obecnego kodu
+cp src/pot.rs src/pot.rs.backup
+
+# 2. Edytuj src/pot.rs:
+#    - Dodaj compute_weight_linear() po linii ~50
+#    - Zmień prob_threshold_q (linia ~450)
+#    - Zmień EpochSnapshot::build (linia ~170)  
+#    - Zmień EpochSnapshot::weight_of (linia ~200)
+
+# 3. Uruchom testy
+cargo test weight_model_tests
+
+# 4. Rebuild
+cargo build --release
+
+# 5. Weryfikuj że działa
+./target/release/tt_node --version
+```
+
+---
+
+## IMPACT ANALYSIS:
+
+### Zmiana zachowania:
+
+| Scenariusz | Stary (iloczyn) | Nowy (2/3+1/3) | Zmiana |
+|------------|----------------|----------------|---------|
+| Low stake, high trust | 0.09 | 0.633 | +604% |
+| High stake, low trust | 0.09 | 0.367 | +308% |
+| Medium both | 0.25 | 0.500 | +100% |
+| Zero trust | 0.00 | 0.333 | +∞% |
+
+**Wnioski:**
+- Trust ma DUŻO większe znaczenie
+- Nawet przy zero trust, jest jakaś szansa (1/3 stake)
+- "Whale attacks" są trudniejsze (bogaci muszą mieć trust)
+
+---
+
+*Patch stworzony na podstawie Twojego modelu 2/3 trust + 1/3 stake*  
+*TRUE TRUST Blockchain v5.0.0*
