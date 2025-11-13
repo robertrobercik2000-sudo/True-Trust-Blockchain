@@ -104,7 +104,6 @@ async fn main() -> Result<()> {
             
             let genesis_beacon = kmac256_hash(b"GENESIS_RANDAO", &[b"TT_BLOCKCHAIN_V1"]);
             let pot_node = PotNode::new(pot_config, genesis_validators, genesis_beacon);
-            let pot_node_arc = Arc::new(Mutex::new(pot_node));
             
             // Initialize state
             std::fs::create_dir_all(&data_dir)?;
@@ -114,7 +113,6 @@ async fn main() -> Result<()> {
             } else {
                 State::new()
             };
-            let state_arc = Arc::new(Mutex::new(state));
             
             let state_priv_path = data_dir.join("state_priv.json");
             let state_priv = if state_priv_path.exists() {
@@ -122,27 +120,30 @@ async fn main() -> Result<()> {
             } else {
                 StatePriv::new()
             };
-            let state_priv_arc = Arc::new(Mutex::new(state_priv));
             
             // Create Trust state (simple version)
             let trust = Trust::new();
             
-            // Create blockchain node
+            // Create blockchain node (takes ownership of pot_node, state, state_priv)
             let node = NodeV2::new(
+                Some(listen.clone()),
+                pot_node,
+                state,
+                state_priv,
                 trust,
-                false, // require_zk = false for testing
-                pot_node_arc.clone(),
-                pot_params,
-                state_arc.clone(),
-                state_priv_arc.clone(),
             );
             let node_arc = Arc::new(node);
             
             // Initialize Bloom filters
-            node_arc.init_filters(&data_dir.join("filters").to_string_lossy(), 1000).await?;
+            node_arc.init_filters(data_dir.join("filters")).await?;
             
-            // Start network listener
-            node_arc.start_listener(&listen).await?;
+            // Spawn network listener
+            let node_clone = node_arc.clone();
+            tokio::spawn(async move {
+                if let Err(e) = node_clone.run().await {
+                    eprintln!("Node run error: {}", e);
+                }
+            });
             
             // Start mining loop
             let node_mining = node_arc.clone();
