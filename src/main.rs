@@ -9,7 +9,7 @@
 
 #![forbid(unsafe_code)]
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use rand::rngs::OsRng;
 use rand::RngCore;
@@ -265,32 +265,46 @@ impl PepperProvider for OsLocalPepper {
     fn get(&self, wallet_id: &[u8;16]) -> Result<Zeroizing<Vec<u8>>> {
         let path = Self::path_for(wallet_id)?;
         if let Some(dir) = path.parent() { fs::create_dir_all(dir)?; }
-        if path.exists() {
-            let v = fs::read(&path)?;
-            ensure!(v.len() == 32, "pepper file size invalid");
-            return Ok(Zeroizing::new(v));
+        
+        // Try to read existing pepper first (avoids race condition)
+        match fs::read(&path) {
+            Ok(v) => {
+                ensure!(v.len() == 32, "pepper file size invalid");
+                return Ok(Zeroizing::new(v));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // File doesn't exist, create new pepper
+            }
+            Err(e) => return Err(e.into()),
         }
+        
+        // Generate new pepper
         let mut p = [0u8;32]; 
         OsRng.fill_bytes(&mut p);
         
+        // Atomically create file (fails if exists - prevents race condition)
+        let mut opts = OpenOptions::new(); 
+        opts.create_new(true).write(true);
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
-            let mut opts = OpenOptions::new(); 
-            opts.create_new(true).write(true).mode(0o600);
-            let mut f = opts.open(&path)?;
-            f.write_all(&p)?;
-            f.sync_all()?;
+            opts.mode(0o600);
         }
-        #[cfg(not(unix))]
-        {
-            let mut opts = OpenOptions::new(); 
-            opts.create_new(true).write(true);
-            let mut f = opts.open(&path)?;
-            f.write_all(&p)?;
-            f.sync_all()?;
+        
+        match opts.open(&path) {
+            Ok(mut f) => {
+                f.write_all(&p)?;
+                f.sync_all()?;
+                Ok(Zeroizing::new(p.to_vec()))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+                // Another process created it, read their pepper
+                let v = fs::read(&path)?;
+                ensure!(v.len() == 32, "pepper file size invalid");
+                Ok(Zeroizing::new(v))
+            }
+            Err(e) => Err(e.into()),
         }
-        Ok(Zeroizing::new(p.to_vec()))
     }
 }
 
@@ -470,37 +484,58 @@ fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<()> {
     #[cfg(unix)]
     use std::os::unix::fs::OpenOptionsExt;
 
-    let tmp = path.with_extension("tmp");
+    // Create unique temp file to avoid conflicts
+    let tmp = path.with_extension(format!("tmp.{}", std::process::id()));
+    
+    // Clean up any stale temp file
+    let _ = fs::remove_file(&tmp);
+    
     let mut opts = OpenOptions::new();
     opts.write(true).create_new(true);
     #[cfg(unix)]
     { opts.mode(0o600); }
 
-    let mut f = match opts.open(&tmp) {
-        Ok(f) => f,
-        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-            fs::remove_file(&tmp)?;
-            opts.open(&tmp)?
-        },
-        Err(e) => return Err(e.into()),
-    };
-
-    f.write_all(bytes)?;
-    f.sync_all()?;
+    let mut f = opts.open(&tmp).with_context(|| format!("Failed to create temp file: {:?}", tmp))?;
+    f.write_all(bytes).with_context(|| "Failed to write to temp file")?;
+    f.sync_all().with_context(|| "Failed to sync temp file")?;
     drop(f);
 
-    match fs::rename(&tmp, path) {
-        Ok(()) => { 
-            fsync_parent_dir(path)?; 
-            Ok(()) 
-        }
-        Err(_) => {
-            let _ = fs::remove_file(path);
-            fs::rename(&tmp, path)?;
-            fsync_parent_dir(path)?;
-            Ok(())
-        }
+    // Atomic rename (on same filesystem)
+    #[cfg(unix)]
+    {
+        // Unix: rename is atomic if on same filesystem
+        fs::rename(&tmp, path)
+            .or_else(|_| {
+                // If rename fails (cross-filesystem?), try copy + remove
+                fs::copy(&tmp, path)
+                    .and_then(|_| fs::remove_file(&tmp))
+            })
+            .with_context(|| format!("Failed to replace file: {:?}", path))?;
     }
+    #[cfg(not(unix))]
+    {
+        // Windows: need to remove target first
+        let backup = path.with_extension("bak");
+        if path.exists() {
+            fs::rename(path, &backup)?;
+        }
+        match fs::rename(&tmp, path) {
+            Ok(()) => {
+                let _ = fs::remove_file(&backup);
+                Ok(())
+            }
+            Err(e) => {
+                // Restore backup on failure
+                if backup.exists() {
+                    let _ = fs::rename(&backup, path);
+                }
+                Err(e.into())
+            }
+        }?;
+    }
+    
+    fsync_parent_dir(path)?;
+    Ok(())
 }
 
 #[cfg(unix)]
