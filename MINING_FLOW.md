@@ -57,11 +57,12 @@
          └──────────────────────────────────┘
 ```
 
-**Problemy:**
-- ❌ Brak MicroPoW (tylko PoT lottery)
-- ❌ Brak PoZS (ZK proofs dla eligibility)
-- ❌ Brak quality metrics (proste trust++)
-- ❌ Brak RandomX-lite mining
+**Problemy (ROZWIĄZANE!):**
+- ✅ PoT jest teraz deterministyczny (brak lottery!)
+- ✅ MicroPoW zintegrowany w mining loop
+- ✅ PoZS Lite (fast ZK proofs) działa
+- ✅ Quality metrics śledzone
+- ✅ RandomX-lite mining zaimplementowany
 - ❌ Brak hybrydowej wagi (2/3 trust + 1/3 stake)
 
 ---
@@ -430,10 +431,11 @@ $ ./tt_node --listen 127.0.0.1:9000 --mine --max-blocks 10
 
 #### Slot 2: WYGRYWA! 🎉
 ```
-🎉 WON slot 2! Creating block...
+🎉 WE ARE LEADER for slot 2! Creating block...
 
-[Phase 1] PoT Eligibility ✅
-   ├─ elig_hash: 0x123abc < threshold
+[Phase 1] PoT Eligibility ✅ (DETERMINISTIC)
+   ├─ Sorted validators by weight
+   ├─ Selected leader: us! (index 2)
    ├─ weight: 134217728 (u128)
    └─ Time: 1.2μs
 
@@ -583,10 +585,10 @@ $ ./tt_node --listen 127.0.0.1:9000 --mine --max-blocks 10
 
 | Komponent | Priorytet | Opis |
 |-----------|-----------|------|
-| PoZS w mining loop | 🔥 HIGH | Dodać `prove_eligibility()` w fazie 2 |
-| RandomX-lite w mining | 🔥 HIGH | Zastąpić prosty lottery pełnym hybrid mining |
-| Quality metrics tracking | 🔥 HIGH | Zbierać metryki podczas mining loop |
-| Advanced trust update | 🔥 HIGH | Używać `apply_block_reward_with_quality()` |
+| PoZS w mining loop | ✅ DONE | `prove_eligibility()` zintegrowane |
+| RandomX-lite w mining | ✅ DONE | Hybrid mining zastąpił prosty lottery |
+| Quality metrics tracking | ✅ DONE | Metryki zbierane w mining loop |
+| Advanced trust update | ✅ DONE | `apply_block_reward_with_quality()` używane |
 | RISC0 integration | 🟡 MED | Podłączyć prawdziwe ZK proving/verifying |
 | Kyber P2P channels | 🟡 MED | Encrypted peer connections |
 | State root computation | 🟡 MED | Merkle trees dla public/private state |
