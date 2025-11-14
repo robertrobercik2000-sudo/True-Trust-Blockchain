@@ -92,10 +92,14 @@ impl TrustParams {
 
 pub type NodeId = [u8; 32];
 
-#[derive(Default)]
 pub struct TrustState { map: HashMap<NodeId, Q> }
 
 impl TrustState {
+    /// Create new empty TrustState
+    pub fn new() -> Self {
+        Self { map: HashMap::new() }
+    }
+    
     #[inline] 
     pub fn get(&self, id: &NodeId, init: Q) -> Q { 
         *self.map.get(id).unwrap_or(&init) 
@@ -110,6 +114,12 @@ impl TrustState {
     pub fn apply_block_reward(&mut self, who: &NodeId, p: TrustParams) {
         let t = self.get(who, p.init_q);
         self.set(*who, p.step(t));
+    }
+}
+
+impl Default for TrustState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
