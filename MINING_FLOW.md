@@ -12,11 +12,11 @@
                             ▼
          ┌──────────────────────────────────┐
          │  1. CHECK PoT ELIGIBILITY        │
-         │                                  │
+         │     (DETERMINISTYCZNY!)          │
          │  pot_node.check_eligibility()   │
-         │  ├─ stake_q × trust_q            │
-         │  ├─ elig_hash < threshold       │
-         │  └─ return weight               │
+         │  ├─ Sort by weight (desc)       │
+         │  ├─ Select[(beacon+slot) % N]   │
+         │  └─ return weight (if us)       │
          └──────────────────────────────────┘
                             │
                             ▼
