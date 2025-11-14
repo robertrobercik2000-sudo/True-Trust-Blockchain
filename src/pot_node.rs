@@ -233,8 +233,12 @@ impl PotNode {
     }
     
     /// Creates a LeaderWitness for the current node
-    pub fn create_witness(&self, epoch: u64, slot: u64) -> Option<crate::pot::LeaderWitness> {
+    ///
+    /// If `use_zk_trust` is true, generates privacy-preserving ZK proof
+    /// instead of revealing exact trust_q value.
+    pub fn create_witness(&self, epoch: u64, slot: u64, use_zk_trust: bool) -> Option<crate::pot::LeaderWitness> {
         use crate::pot::LeaderWitness;
+        use crate::zk_trust::TrustProver;
         
         // Verify we're eligible first
         self.check_eligibility(epoch, slot)?;
@@ -246,6 +250,19 @@ impl PotNode {
         // Build Merkle proof
         let weight_proof = self.snapshot.build_proof(&self.config.node_id)?;
         
+        // Optional: Generate ZK proof of trust (privacy!)
+        let trust_zk_proof = if use_zk_trust {
+            let prover = TrustProver::new(my_trust_q, self.config.node_id);
+            // Prove trust >= min required (e.g., init_q)
+            if let Some(proof) = prover.prove_threshold(self.config.params.trust.init_q) {
+                bincode::serialize(&proof).ok()
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        
         Some(LeaderWitness {
             who: self.config.node_id,
             slot,
@@ -254,6 +271,7 @@ impl PotNode {
             weight_proof,
             stake_q: my_stake_q,
             trust_q: my_trust_q,
+            trust_zk_proof,
         })
     }
 

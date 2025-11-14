@@ -590,6 +590,10 @@ pub struct LeaderWitness {
     pub weight_proof: MerkleProof,
     pub stake_q: StakeQ,
     pub trust_q: Q,
+    
+    /// OPTIONAL: ZK proof of trust (privacy-preserving)
+    /// If present, verifier can check trust WITHOUT learning exact value
+    pub trust_zk_proof: Option<Vec<u8>>, // Serialized TrustProof
 }
 
 #[inline]
