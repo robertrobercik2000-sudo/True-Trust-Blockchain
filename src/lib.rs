@@ -47,7 +47,9 @@ pub mod falcon_sigs; // Falcon-512 Post-Quantum Signatures
 pub mod kyber_kem; // Kyber-768 Post-Quantum KEM
 pub mod pozs_lite;
 pub mod zk_trust; // Privacy-preserving trust proofs
-pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS) // Lightweight PoZS (fast ZK proofs, ~1ms)
+pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS)
+pub mod randomx_full; // Full RandomX (NOT lite!) - 2GB dataset, JIT, 8192 iterations
+pub mod rtt_trust; // RTT (Recursive Trust Tree) - FILAR I WAGA WAG! // Lightweight PoZS (fast ZK proofs, ~1ms)
 
 // Re-export main types for convenience
 pub use pot::{
