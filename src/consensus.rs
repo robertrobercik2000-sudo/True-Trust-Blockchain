@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Trust-based consensus primitives (from user's production code)
 
 use std::collections::HashMap;

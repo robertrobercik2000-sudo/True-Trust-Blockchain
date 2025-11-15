@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Bulletproofs PROVER implementation with optimizations
 //! 
 //! This module adds proving capabilities to complement bp.rs (verifier)

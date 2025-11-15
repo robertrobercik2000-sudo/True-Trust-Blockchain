@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Bulletproofs verification for 64-bit range proofs
 //! Production-grade implementation using curve25519-dalek
 

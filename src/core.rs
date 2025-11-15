@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Core blockchain primitives (Hash32, Block, timestamp utilities)
 
 use serde::{Deserialize, Serialize};

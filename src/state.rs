@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Public blockchain state: balances, trust, keyset, nonces
 
 use std::collections::HashMap;

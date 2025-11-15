@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Transaction types and parsing for TRUE TRUST blockchain
 
 use serde::{Deserialize, Serialize};

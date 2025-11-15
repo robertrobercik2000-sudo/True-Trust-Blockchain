@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Production blockchain node integrating:
 //! - PoT consensus (pot.rs + pot_node.rs)
 //! - PoZS ZK proofs (pozs.rs + pozs_groth16.rs)

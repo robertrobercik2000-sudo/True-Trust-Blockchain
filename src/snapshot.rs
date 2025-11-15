@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Snapshot witness verification module
 //! Provides compact witness format for weight verification
 

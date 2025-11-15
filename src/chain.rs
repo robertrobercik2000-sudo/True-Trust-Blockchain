@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Chain storage with orphan handling and cumulative weight tracking
 
 use std::collections::HashMap;

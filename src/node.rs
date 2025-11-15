@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Production blockchain node v2 (host/src/node.rs)
 //! 
 //! Features:

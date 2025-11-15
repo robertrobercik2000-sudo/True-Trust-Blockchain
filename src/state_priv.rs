@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! Private blockchain state: notes_root, notes_count, frontier, nullifiers
 
 use std::collections::HashSet;

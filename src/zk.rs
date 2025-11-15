@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! RISC0 zkVM integration for private transactions and aggregation
 
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 //! KMAC256 hash functions for consensus and cryptographic operations
 //! Supports both SHAKE256 (XOF) and SHA3-512 (higher security) backends
 
