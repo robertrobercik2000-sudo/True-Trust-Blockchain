@@ -4,8 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.82%2B-orange.svg)](https://www.rust-lang.org/)
-[![NLnet](https://img.shields.io/badge/Funded%20by-NLnet-blue.svg)](https://nlnet.nl/)
 [![Security](https://img.shields.io/badge/Quantum%20Security-64--bit-green.svg)](docs/QUANTUM_SECURITY_SUMMARY.md)
+[![Status](https://img.shields.io/badge/Status-Q1%202025%20Complete-success.svg)](NLNET_DOCUMENTATION_SUMMARY.md)
 
 ---
 
@@ -317,7 +317,12 @@ Ten projekt jest na licencji **MIT** - zobacz plik [LICENSE](LICENSE).
 
 ## 🙏 Acknowledgments / Podziękowania
 
-- **NLnet Foundation** - Project funding / Finansowanie projektu
+**Note:** This project is being prepared for NLnet Foundation grant application.
+
+**Uwaga:** Ten projekt jest przygotowywany do aplikacji o grant od NLnet Foundation.
+
+### Technical Inspirations / Inspiracje Techniczne
+
 - **NIST** - Post-Quantum Cryptography standards
 - **Monero** - RandomX algorithm inspiration
 - **StarkWare** - STARK protocol research

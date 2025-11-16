@@ -1,7 +1,9 @@
 # 🎉 TRUE TRUST BLOCKCHAIN - NLnet Documentation Complete!
 
 **Date:** 2025-11-09  
-**Status:** ✅ **READY FOR NLNET FOUNDATION REVIEW**
+**Status:** ✅ **READY FOR NLNET FOUNDATION GRANT APPLICATION**
+
+**Note:** This project is being prepared for NLnet Foundation grant submission.
 
 ---
 
@@ -302,26 +304,27 @@ Read all documentation in `docs/` directory, organized by category.
 ✅ **Production-Ready Code** - 93% test coverage, formal security analysis  
 ✅ **Ahead of Industry** - 15 years ahead of Bitcoin/Ethereum in quantum resistance  
 
-### **NLnet Impact:**
+### **Value for NLnet Foundation:**
 
 This project advances the state of blockchain technology by:
 
 1. **Post-Quantum Security** - Protecting against future quantum computers
 2. **Novel Consensus** - Trust-based validator selection (no pure lottery)
 3. **Open Source** - MIT license, fully transparent
-4. **European Innovation** - Funded by NLnet/NGI Assure/EC
+4. **European Innovation** - Prepared for NLnet/NGI Assure support
 5. **Academic Rigor** - Formal security proofs, detailed documentation
 
 ---
 
 <p align="center">
   <strong>🏆 Q1 2025 MILESTONE COMPLETE!</strong><br>
-  <em>Ready for NLnet Foundation Review</em>
+  <em>Ready for NLnet Foundation Grant Application</em>
 </p>
 
 <p align="center">
+  <em>Prepared for NLnet Foundation submission</em><br>
   <a href="https://nlnet.nl/">
-    <img src="https://nlnet.nl/logo/banner.svg" alt="NLnet Foundation" width="300"/>
+    <img src="https://nlnet.nl/logo/banner.svg" alt="NLnet Foundation" width="200"/>
   </a>
 </p>
 

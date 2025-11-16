@@ -4,8 +4,8 @@
 
 [![Licencja: MIT](https://img.shields.io/badge/Licencja-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.82%2B-orange.svg)](https://www.rust-lang.org/)
-[![NLnet](https://img.shields.io/badge/Finansowane%20przez-NLnet-blue.svg)](https://nlnet.nl/)
 [![Bezpieczeństwo](https://img.shields.io/badge/Bezpieczeństwo%20Kwantowe-64--bit-green.svg)](docs/QUANTUM_SECURITY_SUMMARY.md)
+[![Status](https://img.shields.io/badge/Status-Q1%202025%20Ukończony-success.svg)](NLNET_DOCUMENTATION_SUMMARY.md)
 
 ---
 
@@ -680,11 +680,7 @@ furnished to do so, subject to the following conditions:
 
 ## 🙏 Podziękowania
 
-### Finansowanie
-
-- **[NLnet Foundation](https://nlnet.nl/)** - Główne finansowanie projektu
-- **[NGI Assure](https://www.ngi.eu/)** - Program wsparcia bezpieczeństwa
-- **[European Commission](https://ec.europa.eu/)** - Współfinansowanie
+**Uwaga:** Ten projekt jest przygotowywany do aplikacji o grant od **NLnet Foundation**.
 
 ### Inspiracje Techniczne
 
@@ -814,14 +810,10 @@ Odpowiemy w ciągu 48 godzin. Zobacz [SECURITY.md](SECURITY.md) dla szczegółó
 </p>
 
 <p align="center">
+  <em>Ten projekt jest przygotowywany do aplikacji o grant od NLnet Foundation</em><br>
   <a href="https://nlnet.nl/">
-    <img src="https://nlnet.nl/logo/banner.svg" alt="NLnet Foundation" width="300"/>
+    <img src="https://nlnet.nl/logo/banner.svg" alt="NLnet Foundation" width="200"/>
   </a>
-</p>
-
-<p align="center">
-  <sub>Ten projekt jest współfinansowany przez NLnet Foundation i program NGI Assure<br>
-  w ramach grantów Komisji Europejskiej (DG CNECT) w ramach Horizont 2020</sub>
 </p>
 
 ---
