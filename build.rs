@@ -1,46 +1,56 @@
-// build.rs - Linkowanie do oficjalnej biblioteki RandomX
-//
-// UWAGA: Ten build script zakłada, że biblioteka RandomX jest dostępna.
-//
-// Instalacja RandomX (Linux/macOS):
-// 1. git clone https://github.com/tevador/RandomX
-// 2. cd RandomX && mkdir build && cd build
-// 3. cmake .. && make
-// 4. sudo make install  (lub skopiuj librandomx.a do /usr/local/lib)
-//
-// Alternatywnie, ustaw zmienną środowiskową:
-// export RANDOMX_LIB_DIR=/path/to/RandomX/build
+// build.rs – bindowanie RandomX (PRO)
+
+use std::env;
 
 fn main() {
-    // Sprawdź czy user chce używać RandomX FFI
-    let use_randomx_ffi = std::env::var("RANDOMX_FFI").unwrap_or_default() == "1";
-    
-    if !use_randomx_ffi {
-        println!("cargo:warning=RandomX FFI disabled (set RANDOMX_FFI=1 to enable)");
-        println!("cargo:warning=Using Pure Rust fallback (randomx_full.rs)");
+    // Jeśli zmienisz te zmienne środowiskowe – przebuduj projekt
+    println!("cargo:rerun-if-env-changed=RANDOMX_LIB_DIR");
+    println!("cargo:rerun-if-env-changed=RANDOMX_STATIC");
+
+    // 1) Najpierw spróbuj użyć pkg-config, jeśli jest dostępny
+    //    (np. po instalacji librandomx-dev z systemowego repo).
+    if let Ok(lib) = pkg_config::Config::new()
+        .atleast_version("1.0")
+        .probe("randomx")
+    {
+        // Ścieżki do bibliotek znalezione przez pkg-config
+        for path in lib.link_paths {
+            println!("cargo:rustc-link-search=native={}", path.display());
+        }
+        // Nazwy bibliotek (zwykle: "randomx")
+        for libname in lib.libs {
+            println!("cargo:rustc-link-lib={}", libname);
+        }
+        println!("cargo:warning=RandomX found via pkg-config ✅");
         return;
     }
-    
-    println!("cargo:warning=Enabling RandomX FFI...");
-    
-    // Włącz feature flag
-    println!("cargo:rustc-cfg=feature=\"randomx-ffi-enabled\"");
-    
-    println!("cargo:warning=Linking RandomX C library...");
-    
-    // Próbuj znaleźć bibliotekę
-    if let Ok(lib_dir) = std::env::var("RANDOMX_LIB_DIR") {
-        println!("cargo:rustc-link-search=native={}", lib_dir);
+
+    // 2) Fallback: użyj zmiennej środowiskowej albo standardowych katalogów
+    if let Ok(dir) = env::var("RANDOMX_LIB_DIR") {
+        // ręcznie wskazane położenie np. /home/user/randomx/build
+        println!("cargo:rustc-link-search=native={dir}");
+        println!("cargo:warning=Using RANDOMX_LIB_DIR={dir}");
     } else {
-        // Domyślne lokalizacje
+        // typowe ścieżki w Linuksie
         println!("cargo:rustc-link-search=native=/usr/local/lib");
         println!("cargo:rustc-link-search=native=/usr/lib");
+        println!("cargo:warning=Searching RandomX in standard paths (/usr/local/lib, /usr/lib)");
     }
+
+    // 3) Static vs dynamic
+    let kind = if env::var("RANDOMX_STATIC").as_deref() == Ok("1") {
+        println!("cargo:warning=Linking RandomX statically");
+        "static"
+    } else {
+        println!("cargo:warning=Linking RandomX dynamically");
+        "dylib"
+    };
+
+    // Podlinkuj librandomx
+    println!("cargo:rustc-link-lib={kind}=randomx");
     
-    // Link library
-    println!("cargo:rustc-link-lib=randomx");
-    
-    // Rerun if environment changes
-    println!("cargo:rerun-if-env-changed=RANDOMX_LIB_DIR");
-    println!("cargo:rerun-if-env-changed=RANDOMX_FFI");
+    println!("cargo:warning=⚠️  If build fails, install RandomX:");
+    println!("cargo:warning=   git clone https://github.com/tevador/RandomX");
+    println!("cargo:warning=   cd RandomX && mkdir build && cd build");
+    println!("cargo:warning=   cmake .. && make && sudo make install");
 }

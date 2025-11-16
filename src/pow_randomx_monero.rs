@@ -1,38 +1,29 @@
-//! pow_randomx_monero.rs
+//! Full RandomX binding (PRO version, Monero-compatible via C FFI)
 //!
-//! Monero-compatible RandomX PoW – FFI wrapper
-//! ==========================================
+//! Ten moduł nie implementuje RandomX w czystym Ruście – zamiast tego
+//! używa oficjalnej biblioteki RandomX (C) przez FFI.
 //!
-//! Ten moduł NIE implementuje RandomX samodzielnie – zamiast tego:
-//! - woła oficjalną bibliotekę RandomX w C,
-//! - dzięki temu dostajesz *bit-w-bit* taki sam algorytm jak Monero,
-//! - Rust jest tylko cienką, bezpieczniejszą otoczką.
+//! Publiczne API zostaje takie samo jak wcześniej:
+//! - `RandomXHasher::new(epoch: u64)`
+//! - `fn hash(&self, input: &[u8]) -> [u8; 32]`
+//! - `fn verify(&self, input: &[u8], expected: &[u8; 32]) -> bool`
+//! - `fn mine_randomx(...) -> Option<(u64, [u8; 32])>`
 //!
-//! Wymagania builda (wysoki poziom):
-//! - sklonuj official RandomX (github.com/tevador/RandomX),
-//! - zbuduj bibliotekę (np. `librandomx.a` / `librandomx.so`),
-//! - w `build.rs` dodaj linkowanie:
-//!     println!("cargo:rustc-link-lib=randomx");
-//!     println!("cargo:rustc-link-search=native=/ścieżka/do/lib");
-//!
-//! Ten moduł zakłada, że nagłówek `randomx.h` jest zgodny z upstream,
-//! a wartości flag odpowiadają dokładnie tym z C.
-//!
-//! **UWAGA**: Ten moduł wymaga `RANDOMX_FFI=1` podczas buildu.
-//! Bez tego flagi, funkcje FFI nie będą linkowane (stub implementation).
-
-#![cfg_attr(not(feature = "randomx-ffi-enabled"), allow(dead_code))]
+//! Dzięki temu inne moduły (golden_trio, cpu_mining, itp.)
+//! nie wymagają zmian – dostają tylko „prawdziwy" RandomX pod spodem.
 
 use std::ffi::c_void;
-use std::os::raw::{c_int, c_uint, c_ulonglong};
+use std::os::raw::{c_uint, c_ulonglong};
 use std::ptr::NonNull;
-use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Instant;
+
 use thiserror::Error;
 
-// c_size_t nie jest dostępne w starszych wersjach Rust
+// c_size_t compatibility
 type c_size_t = usize;
 
-/* ====== FFI: typy z C ====== */
+/* ======== FFI: typy i funkcje z randomx.h ======== */
 
 #[repr(C)]
 pub struct randomx_cache {
@@ -51,10 +42,6 @@ pub struct randomx_vm {
 
 pub type randomx_flags = c_uint;
 
-/* ====== FFI: funkcje z randomx.h ====== */
-
-// FFI funkcje są dostępne TYLKO gdy feature "randomx-ffi-enabled" jest włączony
-#[cfg(feature = "randomx-ffi-enabled")]
 extern "C" {
     pub fn randomx_get_flags() -> randomx_flags;
 
@@ -96,7 +83,7 @@ extern "C" {
     );
 }
 
-/* ====== Flags – muszą odpowiadać randomx.h ====== */
+/* ======== Flags (tak jak w randomx.h) ======== */
 
 pub const RANDOMX_FLAG_DEFAULT: randomx_flags = 0;
 pub const RANDOMX_FLAG_LARGE_PAGES: randomx_flags = 1 << 0;
@@ -108,7 +95,7 @@ pub const RANDOMX_FLAG_ARGON2_SSSE3: randomx_flags = 1 << 5;
 pub const RANDOMX_FLAG_ARGON2_AVX2: randomx_flags = 1 << 6;
 pub const RANDOMX_FLAG_ARGON2_AVX512F: randomx_flags = 1 << 7;
 
-/* ====== Błędy wrappera ====== */
+/* ======== Błędy inicjalizacji ======== */
 
 #[derive(Debug, Error)]
 pub enum RandomxError {
@@ -120,14 +107,12 @@ pub enum RandomxError {
     VmCreateFailed,
 }
 
-/* ====== Niskopoziomowe RAII-wrappers ====== */
+/* ======== RAII wrappers dla cache/dataset/vm ======== */
 
-#[cfg(feature = "randomx-ffi-enabled")]
 struct Cache {
     ptr: NonNull<randomx_cache>,
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Cache {
     unsafe fn new(flags: randomx_flags, key: &[u8]) -> Result<Self, RandomxError> {
         let cache_ptr = randomx_alloc_cache(flags);
@@ -136,20 +121,11 @@ impl Cache {
         Ok(Self { ptr })
     }
 
-    unsafe fn reinit(&mut self, key: &[u8]) {
-        randomx_reinit_cache(
-            self.ptr.as_ptr(),
-            key.as_ptr() as *const c_void,
-            key.len() as c_size_t,
-        );
-    }
-
     fn as_mut_ptr(&self) -> *mut randomx_cache {
         self.ptr.as_ptr()
     }
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Cache {
     fn drop(&mut self) {
         unsafe {
@@ -158,12 +134,10 @@ impl Drop for Cache {
     }
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 struct Dataset {
     ptr: NonNull<randomx_dataset>,
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Dataset {
     unsafe fn new(flags: randomx_flags, cache: &Cache) -> Result<Self, RandomxError> {
         let ds_ptr = randomx_alloc_dataset(flags);
@@ -180,7 +154,6 @@ impl Dataset {
     }
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Dataset {
     fn drop(&mut self) {
         unsafe {
@@ -189,18 +162,12 @@ impl Drop for Dataset {
     }
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 struct Vm {
     ptr: NonNull<randomx_vm>,
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Vm {
-    unsafe fn new(
-        flags: randomx_flags,
-        cache: &Cache,
-        dataset: &Dataset,
-    ) -> Result<Self, RandomxError> {
+    unsafe fn new(flags: randomx_flags, cache: &Cache, dataset: &Dataset) -> Result<Self, RandomxError> {
         let vm_ptr = randomx_create_vm(flags, cache.as_mut_ptr(), dataset.as_mut_ptr());
         let ptr = NonNull::new(vm_ptr).ok_or(RandomxError::VmCreateFailed)?;
         Ok(Self { ptr })
@@ -211,7 +178,6 @@ impl Vm {
     }
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Vm {
     fn drop(&mut self) {
         unsafe {
@@ -220,50 +186,38 @@ impl Drop for Vm {
     }
 }
 
-/* ====== Wysokopoziomowy wrapper: RandomXEnv ====== */
+/* ======== Wewnętrzne środowisko RandomX ======== */
 
-#[cfg(feature = "randomx-ffi-enabled")]
-pub struct RandomXEnv {
-    flags: randomx_flags,
-    cache: Arc<Cache>,
-    dataset: Arc<Dataset>,
+struct RandomXEnv {
+    _flags: randomx_flags,
+    _cache: Cache,
+    _dataset: Dataset,
     vm: Vm,
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
 impl RandomXEnv {
-    /// Utwórz środowisko RandomX dla danego klucza (seed).
-    ///
-    /// `key` – seed/epoch key. Jeśli chcesz 100% zgodności z Monero
-    /// dla konkretnych bloków, musisz użyć takiego samego schematu
-    /// jak oni. Dla Twojego chaina możesz zdefiniować własny.
-    pub fn new(key: &[u8], secure: bool) -> Result<Self, RandomxError> {
-        let mut flags = unsafe { randomx_get_flags() };
+    fn new_with_key(key: &[u8], secure: bool) -> Result<Self, RandomxError> {
+        unsafe {
+            let mut flags = randomx_get_flags();
+            flags |= RANDOMX_FLAG_FULL_MEM | RANDOMX_FLAG_JIT;
+            if secure {
+                flags |= RANDOMX_FLAG_SECURE;
+            }
 
-        // Wymuszamy FULL_MEM + JIT jak w typowej konfiguracji
-        flags |= RANDOMX_FLAG_FULL_MEM | RANDOMX_FLAG_JIT;
+            let cache = Cache::new(flags, key)?;
+            let dataset = Dataset::new(flags, &cache)?;
+            let vm = Vm::new(flags, &cache, &dataset)?;
 
-        if secure {
-            flags |= RANDOMX_FLAG_SECURE;
+            Ok(Self {
+                _flags: flags,
+                _cache: cache,
+                _dataset: dataset,
+                vm,
+            })
         }
-
-        let cache = unsafe { Cache::new(flags, key)? };
-        let dataset = unsafe { Dataset::new(flags, &cache)? };
-        let vm = unsafe { Vm::new(flags, &cache, &dataset)? };
-
-        Ok(Self {
-            flags,
-            cache: Arc::new(cache),
-            dataset: Arc::new(dataset),
-            vm,
-        })
     }
 
-    pub fn flags(&self) -> randomx_flags {
-        self.flags
-    }
-
-    pub fn hash(&mut self, input: &[u8]) -> [u8; 32] {
+    fn hash(&mut self, input: &[u8]) -> [u8; 32] {
         let mut out = [0u8; 32];
         unsafe {
             randomx_calculate_hash(
@@ -277,11 +231,55 @@ impl RandomXEnv {
     }
 }
 
-/* ====== Funkcje pomocnicze pod PoW ====== */
+/* ======== Publiczny API: RandomXHasher (tak jak wcześniej) ======== */
 
-#[cfg(feature = "randomx-ffi-enabled")]
-pub fn hash_less_than(a: &[u8; 32], b: &[u8; 32]) -> bool {
-    for i in 0..32 {
+/// Publiczny hasher, używany w reszcie kodu.
+/// Trzyma środowisko RandomX w Mutex, żeby metody mogły mieć `&self`.
+pub struct RandomXHasher {
+    env: Mutex<RandomXEnv>,
+    epoch: u64,
+}
+
+impl RandomXHasher {
+    /// Tworzy nowy hasher dla danej epoki.
+    ///
+    /// Kluczem do RandomX jest tu po prostu `epoch.to_le_bytes()`.
+    /// Jeśli chcesz bardziej złożony seed (np. KMAC z net_id),
+    /// można to łatwo zmienić.
+    pub fn new(epoch: u64) -> Self {
+        let key = epoch.to_le_bytes();
+        let env = RandomXEnv::new_with_key(&key, false)
+            .expect("RandomXEnv init failed (check librandomx linking)");
+
+        Self {
+            env: Mutex::new(env),
+            epoch,
+        }
+    }
+
+    /// Zwraca hash RandomX(input).
+    pub fn hash(&self, input: &[u8]) -> [u8; 32] {
+        let mut env = self.env.lock().expect("RandomXEnv mutex poisoned");
+        env.hash(input)
+    }
+
+    /// Sprawdza, czy hash(input) == expected.
+    pub fn verify(&self, input: &[u8], expected: &[u8; 32]) -> bool {
+        let h = self.hash(input);
+        &h == expected
+    }
+
+    /// Zwraca epokę, dla której skonstruowano hasher.
+    pub fn epoch(&self) -> u64 {
+        self.epoch
+    }
+}
+
+/* ======== Funkcje pomocnicze dla PoW ======== */
+
+/// Compare hashes (little-endian, jak w starej wersji)
+fn hash_less_than(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    for i in (0..32).rev() {
         if a[i] < b[i] {
             return true;
         } else if a[i] > b[i] {
@@ -291,27 +289,42 @@ pub fn hash_less_than(a: &[u8; 32], b: &[u8; 32]) -> bool {
     false
 }
 
-#[cfg(feature = "randomx-ffi-enabled")]
-pub fn mine_once(
-    env: &mut RandomXEnv,
-    header_without_nonce: &[u8],
-    start_nonce: u64,
-    max_iters: u64,
+/// Mining function (proof-of-work)
+///
+/// Find nonce such that hash(data || nonce) < target
+pub fn mine_randomx(
+    hasher: &RandomXHasher,
+    data: &[u8],
     target: &[u8; 32],
+    max_iterations: u64,
 ) -> Option<(u64, [u8; 32])> {
-    let mut buf = Vec::with_capacity(header_without_nonce.len() + 8);
+    let start = Instant::now();
 
-    for nonce in start_nonce..start_nonce + max_iters {
-        buf.clear();
-        buf.extend_from_slice(header_without_nonce);
-        buf.extend_from_slice(&nonce.to_le_bytes());
+    for nonce in 0..max_iterations {
+        // Combine data + nonce
+        let mut input = data.to_vec();
+        input.extend_from_slice(&nonce.to_le_bytes());
 
-        let hash = env.hash(&buf);
+        // Hash
+        let hash = hasher.hash(&input);
+
+        // Check if hash < target
         if hash_less_than(&hash, target) {
+            println!(
+                "✅ Found nonce {} in {:.2}s",
+                nonce,
+                start.elapsed().as_secs_f64()
+            );
             return Some((nonce, hash));
+        }
+
+        if nonce % 10 == 0 {
+            print!(".");
+            let _ = std::io::Write::flush(&mut std::io::stdout());
         }
     }
 
+    println!("\n❌ No solution found after {} iterations", max_iterations);
     None
 }
 
@@ -319,22 +332,13 @@ pub fn mine_once(
 mod tests {
     use super::*;
 
-    // UWAGA: Ten test wymaga:
-    // 1. Zainstalowanej biblioteki RandomX (librandomx.a / librandomx.so)
-    // 2. RANDOMX_FFI=1 env var podczas build
-    //
-    // Aby uruchomić:
-    // RANDOMX_FFI=1 cargo test pow_randomx_monero::tests::test_env_and_hash_deterministic -- --ignored
     #[test]
-    #[ignore]
-    fn test_env_and_hash_deterministic() {
-        let key = b"example-randomx-key-epoch-0";
-        let mut env = RandomXEnv::new(key, false).expect("env init");
-
-        let data = b"test block header";
-        let h1 = env.hash(data);
-        let h2 = env.hash(data);
-
-        assert_eq!(h1, h2, "RandomX hash must be deterministic for same input");
+    #[ignore] // Wymaga biblioteki RandomX
+    fn test_hash_deterministic() {
+        let hasher = RandomXHasher::new(0);
+        let data = b"test block data";
+        let h1 = hasher.hash(data);
+        let h2 = hasher.hash(data);
+        assert_eq!(h1, h2);
     }
 }

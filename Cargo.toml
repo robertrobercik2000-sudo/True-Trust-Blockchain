@@ -80,6 +80,9 @@ zk-proofs = [
 # Enable RISC0 zkVM prover (requires RISC0 SDK)
 risc0-prover = []
 
+[build-dependencies]
+pkg-config = "0.3"
+
 [[bin]]
 name = "tt_node"
 path = "src/bin/node_cli.rs"

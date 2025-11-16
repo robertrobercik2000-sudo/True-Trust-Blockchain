@@ -7,6 +7,7 @@
 
 use crate::rtt_trust_pro::{TrustGraph, RTTConfig, TrustScore, Q, q_from_f64, q_to_f64};
 use crate::pot::{NodeId, EpochSnapshot};
+use crate::pow_randomx_monero::RandomXHasher;
 use std::collections::HashMap;
 
 /// Consensus PRO - główna fasada
@@ -14,9 +15,8 @@ pub struct ConsensusPro {
     /// RTT Trust graph (Q32.32 deterministyczny)
     pub trust_graph: TrustGraph,
     
-    /// RandomX env (opcjonalnie, jeśli RANDOMX_FFI=1)
-    #[cfg(feature = "randomx-ffi-enabled")]
-    randomx_env: Option<crate::pow_randomx_monero::RandomXEnv>,
+    /// RandomX hasher (Monero FFI)
+    randomx_hasher: Option<RandomXHasher>,
     
     /// Current epoch
     current_epoch: u64,
@@ -27,8 +27,7 @@ impl ConsensusPro {
     pub fn new() -> Self {
         Self {
             trust_graph: TrustGraph::new(RTTConfig::default()),
-            #[cfg(feature = "randomx-ffi-enabled")]
-            randomx_env: None,
+            randomx_hasher: None,
             current_epoch: 0,
         }
     }
@@ -37,31 +36,24 @@ impl ConsensusPro {
     pub fn with_config(config: RTTConfig) -> Self {
         Self {
             trust_graph: TrustGraph::new(config),
-            #[cfg(feature = "randomx-ffi-enabled")]
-            randomx_env: None,
+            randomx_hasher: None,
             current_epoch: 0,
         }
     }
     
-    /// Inicjalizuj RandomX dla epoki (jeśli FFI dostępne)
-    #[cfg(feature = "randomx-ffi-enabled")]
-    pub fn init_randomx(&mut self, epoch_key: &[u8]) -> Result<(), crate::pow_randomx_monero::RandomxError> {
-        let env = crate::pow_randomx_monero::RandomXEnv::new(epoch_key, true)?;
-        self.randomx_env = Some(env);
-        Ok(())
+    /// Inicjalizuj RandomX dla epoki
+    pub fn init_randomx(&mut self, epoch: u64) {
+        self.current_epoch = epoch;
+        self.randomx_hasher = Some(RandomXHasher::new(epoch));
     }
     
-    /// RandomX hash (FFI jeśli dostępne, fallback do Pure Rust)
-    pub fn randomx_hash(&mut self, input: &[u8]) -> [u8; 32] {
-        #[cfg(feature = "randomx-ffi-enabled")]
-        {
-            if let Some(ref mut env) = self.randomx_env {
-                return env.hash(input);
-            }
+    /// RandomX hash (używa Monero FFI)
+    pub fn randomx_hash(&self, input: &[u8]) -> [u8; 32] {
+        if let Some(ref hasher) = self.randomx_hasher {
+            return hasher.hash(input);
         }
         
-        // Fallback: Pure Rust
-        use crate::randomx_full::RandomXHasher;
+        // Fallback: utwórz hasher dla bieżącej epoki
         let hasher = RandomXHasher::new(self.current_epoch);
         hasher.hash(input)
     }
