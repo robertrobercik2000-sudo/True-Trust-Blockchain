@@ -57,7 +57,9 @@ pub mod pow_randomx_monero; // OFFICIAL RandomX FFI (Monero C library) - PRODUCT
 pub mod rtt_trust; // RTT (Recursive Trust Tree) - f64 version
 pub mod rtt_trust_pro; // RTT PRO (Q32.32 deterministic) - PRODUCTION!
 pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio
-pub mod stark_full; // PEŁNY STARK - Production ZK proofs (FRI, AIR, field arithmetic) // Lightweight PoZS (fast ZK proofs, ~1ms)
+pub mod stark_full; // PEŁNY STARK - Production ZK proofs (FRI, AIR, field arithmetic)
+pub mod p2p_secure; // PQ-secure P2P transport (Falcon512 + Kyber768 + XChaCha20-Poly1305)
+pub mod node_v2_p2p; // Blockchain node with PQ P2P networking
 
 // Re-export main types for convenience
 pub use pot::{

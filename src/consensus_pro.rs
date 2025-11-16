@@ -7,8 +7,11 @@
 
 use crate::rtt_trust_pro::{TrustGraph, RTTConfig, TrustScore, Q, q_from_f64, q_to_f64};
 use crate::pot::{NodeId, EpochSnapshot};
-use crate::pow_randomx_monero::RandomXHasher;
 use std::collections::HashMap;
+
+// RandomXHasher from FFI (requires librandomx installed)
+// If build fails, install RandomX: see RANDOMX_INSTALL.md
+use crate::pow_randomx_monero::RandomXHasher;
 
 /// Consensus PRO - główna fasada
 pub struct ConsensusPro {
