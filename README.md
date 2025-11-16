@@ -5,9 +5,9 @@
 [![MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.82%2B-orange.svg)](https://www.rust-lang.org/)
 [![PQC](https://img.shields.io/badge/Quantum-Resistant-green.svg)](docs/security/)
-[![Status](https://img.shields.io/badge/Q1%202025-Complete-success.svg)](NLNET_DOCUMENTATION_SUMMARY.md)
+[![Status](https://img.shields.io/badge/Status-Research-blue.svg)](NLNET_DOCUMENTATION_SUMMARY.md)
 
-> Prepared for **NLnet Foundation** grant application
+> **⚠️ RESEARCH PROTOTYPE** - Not production-ready. Educational implementation for NLnet Foundation grant application.
 
 ---
 
@@ -373,28 +373,24 @@ docs/
 
 ---
 
-## Roadmap
+## Development Status
 
 ```
-Q1 2025  ✓ Core implementation complete
-         ✓ PQC (Falcon, Kyber, STARK)
-         ✓ PoT consensus
-         ✓ Security analysis
-         ✓ Documentation
+Current (Q1 2025):
+  ✓ Core concepts implemented
+  ✓ PQC primitives (Falcon, Kyber) 
+  ✓ STARK proof-of-concept (educational, unoptimized)
+  ✓ PoT consensus design
+  ⚠️ NOT production-ready
+  ⚠️ Requires optimization and security audit
 
-Q2 2025  ○ NLnet grant application
-         ○ Testnet launch
-         ○ External security audit
-         ○ GUI wallet
-
-Q3 2025  ○ Mainnet preparation
-         ○ BN254 field (256-bit, optional)
-         ○ Third-party audit
-         ○ Bug bounty program
-
-Q4 2025  ○ Mainnet launch
-         ○ Block explorer
-         ○ DApp framework
+Next Steps (if funded):
+  ○ NLnet grant application
+  ○ Code optimization (STARK, consensus)
+  ○ Security audit (external)
+  ○ Testnet deployment
+  ○ Production hardening
+  ○ Mainnet preparation
 ```
 
 ---
