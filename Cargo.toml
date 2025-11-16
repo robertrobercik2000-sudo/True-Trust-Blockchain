@@ -62,10 +62,10 @@ ark-crypto-primitives = { version = "0.4", default-features = false, features = 
 ark-serialize = { version = "0.4", default-features = false, optional = true }
 
 [features]
-# STARK field selection
-default = ["babybear"]
-babybear = []            # Demo-grade: 31-bit BabyBear field, fast (testnet)
-goldilocks = []          # Production-grade: 64-bit Goldilocks field, 2× slower (mainnet)
+# STARK field selection (see QUANTUM_SECURITY_DECISION.md for details)
+default = ["goldilocks"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
+babybear = []             # Demo-grade: 31-bit BabyBear field, fast (testnet only)
+goldilocks = []           # Production-grade: 64-bit Goldilocks field, 2× slower (mainnet)
 
 # ZK proof support (Groth16/BN254)
 zk-proofs = [
