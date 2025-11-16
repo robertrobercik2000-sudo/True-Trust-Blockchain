@@ -2,6 +2,17 @@
 
 //! Bulletproofs verification for 64-bit range proofs
 //! Production-grade implementation using curve25519-dalek
+//!
+//! ⚠️ **DEPRECATED**: Bulletproofs są oparte na Curve25519 (ECC) - **NIE są post-quantum!**
+//!
+//! **Migracja**: Użyj `tx_stark` zamiast tego modułu:
+//! - 100% Post-Quantum (STARK, hash-based)
+//! - 256-bit quantum security
+//! - Transparent (no trusted setup)
+//!
+//! Zobacz: `BULLETPROOFS_TO_STARK_MIGRATION.md`
+//!
+//! Ten moduł zostanie usunięty w v6.0.0.
 
 #![allow(non_snake_case)]
 #![allow(dead_code)]

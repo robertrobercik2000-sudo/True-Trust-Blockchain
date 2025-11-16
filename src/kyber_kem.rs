@@ -150,6 +150,12 @@ pub fn derive_aes_key_from_shared_secret(ss: &KyberSharedSecret, context: &[u8])
     kmac256_hash(context, &[ss.as_bytes()])
 }
 
+/// Derive 32-byte AES key from shared secret bytes (for use with Zeroizing wrapper)
+pub fn derive_aes_key_from_shared_secret_bytes(ss_bytes: &[u8], context: &[u8]) -> [u8; 32] {
+    use crate::crypto_kmac_consensus::kmac256_hash;
+    kmac256_hash(context, &[ss_bytes])
+}
+
 /* ============================================================================
  * High-Level API
  * ========================================================================== */
