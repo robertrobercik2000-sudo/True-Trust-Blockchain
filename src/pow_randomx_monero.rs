@@ -17,6 +17,11 @@
 //!
 //! Ten moduł zakłada, że nagłówek `randomx.h` jest zgodny z upstream,
 //! a wartości flag odpowiadają dokładnie tym z C.
+//!
+//! **UWAGA**: Ten moduł wymaga `RANDOMX_FFI=1` podczas buildu.
+//! Bez tego flagi, funkcje FFI nie będą linkowane (stub implementation).
+
+#![cfg_attr(not(feature = "randomx-ffi-enabled"), allow(dead_code))]
 
 use std::ffi::c_void;
 use std::os::raw::{c_int, c_uint, c_ulonglong};
@@ -48,6 +53,8 @@ pub type randomx_flags = c_uint;
 
 /* ====== FFI: funkcje z randomx.h ====== */
 
+// FFI funkcje są dostępne TYLKO gdy feature "randomx-ffi-enabled" jest włączony
+#[cfg(feature = "randomx-ffi-enabled")]
 extern "C" {
     pub fn randomx_get_flags() -> randomx_flags;
 
@@ -115,10 +122,12 @@ pub enum RandomxError {
 
 /* ====== Niskopoziomowe RAII-wrappers ====== */
 
+#[cfg(feature = "randomx-ffi-enabled")]
 struct Cache {
     ptr: NonNull<randomx_cache>,
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Cache {
     unsafe fn new(flags: randomx_flags, key: &[u8]) -> Result<Self, RandomxError> {
         let cache_ptr = randomx_alloc_cache(flags);
@@ -140,6 +149,7 @@ impl Cache {
     }
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Cache {
     fn drop(&mut self) {
         unsafe {
@@ -148,10 +158,12 @@ impl Drop for Cache {
     }
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 struct Dataset {
     ptr: NonNull<randomx_dataset>,
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Dataset {
     unsafe fn new(flags: randomx_flags, cache: &Cache) -> Result<Self, RandomxError> {
         let ds_ptr = randomx_alloc_dataset(flags);
@@ -168,6 +180,7 @@ impl Dataset {
     }
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Dataset {
     fn drop(&mut self) {
         unsafe {
@@ -176,10 +189,12 @@ impl Drop for Dataset {
     }
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 struct Vm {
     ptr: NonNull<randomx_vm>,
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Vm {
     unsafe fn new(
         flags: randomx_flags,
@@ -196,6 +211,7 @@ impl Vm {
     }
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl Drop for Vm {
     fn drop(&mut self) {
         unsafe {
@@ -206,6 +222,7 @@ impl Drop for Vm {
 
 /* ====== Wysokopoziomowy wrapper: RandomXEnv ====== */
 
+#[cfg(feature = "randomx-ffi-enabled")]
 pub struct RandomXEnv {
     flags: randomx_flags,
     cache: Arc<Cache>,
@@ -213,6 +230,7 @@ pub struct RandomXEnv {
     vm: Vm,
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 impl RandomXEnv {
     /// Utwórz środowisko RandomX dla danego klucza (seed).
     ///
@@ -261,6 +279,7 @@ impl RandomXEnv {
 
 /* ====== Funkcje pomocnicze pod PoW ====== */
 
+#[cfg(feature = "randomx-ffi-enabled")]
 pub fn hash_less_than(a: &[u8; 32], b: &[u8; 32]) -> bool {
     for i in 0..32 {
         if a[i] < b[i] {
@@ -272,6 +291,7 @@ pub fn hash_less_than(a: &[u8; 32], b: &[u8; 32]) -> bool {
     false
 }
 
+#[cfg(feature = "randomx-ffi-enabled")]
 pub fn mine_once(
     env: &mut RandomXEnv,
     header_without_nonce: &[u8],

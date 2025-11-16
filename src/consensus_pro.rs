@@ -15,7 +15,7 @@ pub struct ConsensusPro {
     pub trust_graph: TrustGraph,
     
     /// RandomX env (opcjonalnie, jeśli RANDOMX_FFI=1)
-    #[cfg(feature = "randomx-ffi")]
+    #[cfg(feature = "randomx-ffi-enabled")]
     randomx_env: Option<crate::pow_randomx_monero::RandomXEnv>,
     
     /// Current epoch
@@ -27,7 +27,7 @@ impl ConsensusPro {
     pub fn new() -> Self {
         Self {
             trust_graph: TrustGraph::new(RTTConfig::default()),
-            #[cfg(feature = "randomx-ffi")]
+            #[cfg(feature = "randomx-ffi-enabled")]
             randomx_env: None,
             current_epoch: 0,
         }
@@ -37,14 +37,14 @@ impl ConsensusPro {
     pub fn with_config(config: RTTConfig) -> Self {
         Self {
             trust_graph: TrustGraph::new(config),
-            #[cfg(feature = "randomx-ffi")]
+            #[cfg(feature = "randomx-ffi-enabled")]
             randomx_env: None,
             current_epoch: 0,
         }
     }
     
     /// Inicjalizuj RandomX dla epoki (jeśli FFI dostępne)
-    #[cfg(feature = "randomx-ffi")]
+    #[cfg(feature = "randomx-ffi-enabled")]
     pub fn init_randomx(&mut self, epoch_key: &[u8]) -> Result<(), crate::pow_randomx_monero::RandomxError> {
         let env = crate::pow_randomx_monero::RandomXEnv::new(epoch_key, true)?;
         self.randomx_env = Some(env);
@@ -53,7 +53,7 @@ impl ConsensusPro {
     
     /// RandomX hash (FFI jeśli dostępne, fallback do Pure Rust)
     pub fn randomx_hash(&mut self, input: &[u8]) -> [u8; 32] {
-        #[cfg(feature = "randomx-ffi")]
+        #[cfg(feature = "randomx-ffi-enabled")]
         {
             if let Some(ref mut env) = self.randomx_env {
                 return env.hash(input);

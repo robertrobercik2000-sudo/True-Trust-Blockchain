@@ -17,8 +17,14 @@ fn main() {
     
     if !use_randomx_ffi {
         println!("cargo:warning=RandomX FFI disabled (set RANDOMX_FFI=1 to enable)");
+        println!("cargo:warning=Using Pure Rust fallback (randomx_full.rs)");
         return;
     }
+    
+    println!("cargo:warning=Enabling RandomX FFI...");
+    
+    // Włącz feature flag
+    println!("cargo:rustc-cfg=feature=\"randomx-ffi-enabled\"");
     
     println!("cargo:warning=Linking RandomX C library...");
     
