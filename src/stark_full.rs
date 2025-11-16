@@ -29,15 +29,15 @@ use std::ops::{Add, Sub, Mul};
 // PRIME FIELD ARITHMETIC
 // ============================================================================
 
-/// Prime field modulus: p = 2^64 - 2^32 + 1 (Goldilocks prime)
+/// Prime field modulus: p = 2^31 - 1 (Mersenne prime)
 ///
 /// This prime is specially chosen for:
-/// - Fast modular arithmetic (Goldilocks reduction)
-/// - Good FFT properties (2^32 primitive root exists)
-/// - 64-bit friendly (no overflow in addition)
+/// - Fast modular arithmetic (Mersenne reduction: x mod (2^n-1) = (x & mask) + (x >> n))
+/// - Simple implementation
+/// - Good for demonstrating STARK
 ///
-/// Value: 0xFFFFFFFF00000001 = 18446744069414584321
-pub const FIELD_MODULUS: u64 = 0xFFFFFFFF00000001u64;
+/// Value: 2147483647
+pub const FIELD_MODULUS: u64 = (1u64 << 31) - 1; // 2^31 - 1
 
 /// Field element in GF(p)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,23 +60,18 @@ impl FieldElement {
         self.0
     }
     
-    /// Modular reduction (Goldilocks optimization)
+    /// Modular reduction (Mersenne optimization)
     fn reduce(val: u128) -> u64 {
-        // Goldilocks reduction: p = 2^64 - 2^32 + 1
-        // If val = a * 2^64 + b, then val mod p = a * (2^32 - 1) + b (approximately)
+        // Mersenne reduction: x mod (2^31 - 1) = (x & mask) + (x >> 31)
+        let p = FIELD_MODULUS as u128;
+        let mut result = (val % p) as u64;
         
-        let lo = (val & 0xFFFFFFFF_FFFFFFFF) as u64;
-        let hi = (val >> 64) as u64;
-        
-        // First reduction
-        let t = lo.wrapping_add(hi.wrapping_mul((1u64 << 32) - 1));
-        
-        // Second reduction if needed
-        if t >= FIELD_MODULUS {
-            t - FIELD_MODULUS
-        } else {
-            t
+        // Ensure result < p
+        if result >= FIELD_MODULUS {
+            result -= FIELD_MODULUS;
         }
+        
+        result
     }
     
     /// Modular inverse (Extended Euclidean Algorithm)
