@@ -48,8 +48,15 @@ pub mod kyber_kem; // Kyber-768 Post-Quantum KEM
 pub mod pozs_lite;
 pub mod zk_trust; // Privacy-preserving trust proofs
 pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS)
-pub mod randomx_full; // Full RandomX (NOT lite!) - 2GB dataset, JIT, 8192 iterations
-pub mod rtt_trust; // RTT (Recursive Trust Tree) - FILAR I WAGA WAG!
+pub mod randomx_full; // Full RandomX (Pure Rust implementation - fallback)
+
+// RandomX FFI - tylko jeśli RANDOMX_FFI=1 (wymaga biblioteki C)
+#[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
+pub mod pow_randomx_monero; // OFFICIAL RandomX FFI (Monero C library) - PRODUCTION!
+
+pub mod rtt_trust; // RTT (Recursive Trust Tree) - f64 version
+pub mod rtt_trust_pro; // RTT PRO (Q32.32 deterministic) - PRODUCTION!
+pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio
 pub mod stark_full; // PEŁNY STARK - Production ZK proofs (FRI, AIR, field arithmetic) // Lightweight PoZS (fast ZK proofs, ~1ms)
 
 // Re-export main types for convenience
