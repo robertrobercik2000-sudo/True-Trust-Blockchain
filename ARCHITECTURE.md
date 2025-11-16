@@ -1,8 +1,11 @@
 # 🏗️ TRUE TRUST BLOCKCHAIN - Architecture / Architektura
 
-**Version:** 1.0.0  
+**Version:** 0.1.0  
 **Date:** 2025-11-09  
-**Status:** Q1 2025 Complete ✅
+**Status:** ⚠️ Research Prototype (NOT Production-Ready)
+
+> **DISCLAIMER:** This is a research implementation for NLnet grant application.  
+> NOT audited, NOT optimized, NOT ready for production deployment.
 
 ---
 
@@ -34,7 +37,7 @@ TRUE TRUST to post-kwantowy blockchain z pięcioma głównymi warstwami:
 ┌────────────────────────┴───────────────────────────────────┐
 │                  CRYPTOGRAPHY LAYER                         │
 │                WARSTWA KRYPTOGRAFICZNA                      │
-│  Falcon512 • Kyber768 • STARK (Goldilocks) • SHA3         │
+│  Falcon512 • Kyber768 • STARK (Goldilocks*) • SHA3        │
 └────────────────────────┬───────────────────────────────────┘
                          │
 ┌────────────────────────┴───────────────────────────────────┐
@@ -324,15 +327,15 @@ Classical security: min(160, 64, 128) = 64 bits ✅
 Quantum security: 64 / 2 = 32 bits ✅
 ```
 
-**Performance / Wydajność:**
+**Performance / Wydajność (Unoptimized Research Code):**
 
-| Field | Prove Time | Verify Time | Proof Size |
-|-------|------------|-------------|------------|
-| BabyBear (31-bit) | ~250ms | ~50ms | ~25 KB |
-| Goldilocks (64-bit) | ~500ms | ~100ms | ~50 KB |
-| BN254 (256-bit)* | ~5000ms | ~1000ms | ~200 KB |
+| Field | Prove Time | Verify Time | Proof Size | Status |
+|-------|------------|-------------|------------|--------|
+| BabyBear (31-bit) | ~1-2s | ~200-500ms | ~100-400 KB | Testing only |
+| Goldilocks (64-bit)* | ~2-4s | ~300-700ms | ~100-200 KB | **DEFAULT** |
+| BN254 (256-bit) | Not implemented | - | - | Future |
 
-*Not yet implemented / Nie zaimplementowane
+*Current default. Production optimizations could achieve: 500ms-1s prove, 100-200ms verify, 50-100 KB proofs.
 
 ---
 
@@ -348,7 +351,7 @@ pub struct TxOutputStark {
     value_commitment: Hash32,  // SHA3(value || blinding || recipient)
     
     // 2. STARK range proof (0 ≤ value < 2^64)
-    stark_proof: Vec<u8>,      // ~50 KB
+    stark_proof: Vec<u8>,      // ~100-200 KB (unoptimized)
     
     // 3. Recipient (stealth address)
     recipient: Hash32,

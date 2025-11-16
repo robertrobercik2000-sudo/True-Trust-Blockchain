@@ -1,7 +1,12 @@
 # 🔐 Security Policy / Polityka Bezpieczeństwa
 
-**Version:** 1.0.0  
-**Last Updated:** 2025-11-09
+**Version:** 0.1.0  
+**Last Updated:** 2025-11-09  
+**Status:** ⚠️ Research Prototype (NOT Production-Ready)
+
+> **IMPORTANT:** This is research code for grant application purposes.  
+> NO external security audit has been performed.  
+> DO NOT use in production without extensive testing and audit.
 
 ---
 
