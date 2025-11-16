@@ -49,7 +49,8 @@ pub mod pozs_lite;
 pub mod zk_trust; // Privacy-preserving trust proofs
 pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS)
 pub mod randomx_full; // Full RandomX (NOT lite!) - 2GB dataset, JIT, 8192 iterations
-pub mod rtt_trust; // RTT (Recursive Trust Tree) - FILAR I WAGA WAG! // Lightweight PoZS (fast ZK proofs, ~1ms)
+pub mod rtt_trust; // RTT (Recursive Trust Tree) - FILAR I WAGA WAG!
+pub mod stark_mini; // Mini STARK - 100% PQ ZK proofs (hash-based, no ECC!) // Lightweight PoZS (fast ZK proofs, ~1ms)
 
 // Re-export main types for convenience
 pub use pot::{
