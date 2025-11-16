@@ -91,10 +91,12 @@ Subject to RandomX PoW verification:
 |-----------|-----------|-----------|---------|------|
 | **Signatures** | Falcon512 (NIST) | 128-bit | 64-bit | 690 B |
 | **Key Exchange** | Kyber768 (NIST) | 192-bit | 96-bit | 1088 B |
-| **Range Proofs** | STARK (Goldilocks) | 64-bit | 32-bit | 50 KB |
+| **Range Proofs** | STARK (BabyBear)* | 31-bit* | 15-bit* | 100-400 KB |
 | **Hashing** | SHA3-256 | 128-bit | 64-bit | 32 B |
 
-**Overall System Security:** 64-bit classical, 32-bit quantum *(safe until ~2040)*
+*Current: Educational implementation. Production target: Goldilocks (64-bit classical, 32-bit quantum, optimized to ~50-100 KB).
+
+**Overall System Security:** Current implementation uses educational STARK (31-bit). Production would use Goldilocks (64-bit classical, 32-bit quantum, safe until ~2040).
 
 ### STARK Range Proof
 
@@ -134,13 +136,15 @@ Where:
 
 | Operation | Time | Size | Security |
 |-----------|------|------|----------|
-| **Falcon512 Sign** | 2 ms | 690 B | 128-bit |
-| **Kyber768 Encaps** | 1 ms | 1088 B | 192-bit |
-| **STARK Prove** | 500 ms | 50 KB | 64-bit |
-| **STARK Verify** | 100 ms | - | 64-bit |
-| **RandomX Hash** | 5 μs | - | - |
-| **Block Time** | 5 s | - | - |
-| **TPS** | ~20 | - | - |
+| **Falcon512 Sign** | ~2 ms | 690 B | 128-bit classical |
+| **Kyber768 Encaps** | ~1 ms | 1088 B | 192-bit classical |
+| **STARK Prove** (unoptimized) | 1-2 s | 100-400 KB | 31-bit* |
+| **STARK Verify** (unoptimized) | 200-500 ms | - | 31-bit* |
+| **RandomX Hash** | ~5 μs | - | - |
+| **Block Time** (estimated) | 10-15 s | - | - |
+| **TPS** (estimated) | ~5-10 | - | - |
+
+*BabyBear field (educational implementation). Goldilocks field (production) would provide 64-bit classical, 32-bit quantum security with optimized performance.
 
 ### Consensus Performance
 
