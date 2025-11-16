@@ -1,113 +1,66 @@
 #![forbid(unsafe_code)]
 
-//! PEŁNY STARK - Production-Grade Post-Quantum ZK Proofs
+//! STARK – szkic edukacyjny (NIE production)
 //!
 //! **Based on:**
 //! - StarkWare's STARK protocol
-//! - Polygon Miden VM architecture  
+//! - Polygon Miden VM architecture
 //! - FRI (Fast Reed-Solomon Interactive Oracle Proof)
 //!
 //! **Components:**
-//! 1. Prime Field Arithmetic (GF(p) where p = 2^64 - 2^32 + 1)
+//! 1. Prime Field Arithmetic (GF(p) = 2^31 - 2^27 + 1 – BabyBear)
 //! 2. Polynomial Operations (evaluation, interpolation)
-//! 3. AIR (Algebraic Intermediate Representation) - constraints
+//! 3. AIR (Algebraic Intermediate Representation)
 //! 4. FRI Protocol (folding + commitment)
 //! 5. Merkle Trees (SHA-3 based)
 //! 6. Fiat-Shamir (non-interactive)
 //!
-//! **Performance:**
-//! - Prove: 100-500ms (depending on trace length)
-//! - Verify: 20-100ms
-//! - Proof size: 50-200 KB
-//! - Security: 128-bit (post-quantum)
+//! Ten kod nie zapewnia gwarancji wydajności ani poziomu bezpieczeństwa.
 
-use sha3::{Digest, Sha3_256};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, Sub, Mul};
+use sha3::{Digest, Sha3_256};
+use std::ops::{Add, Mul, Sub};
 
-/// Local alias for 32-byte hash (to avoid dependency on core module)
 pub type Hash32 = [u8; 32];
 
 // ============================================================================
 // PRIME FIELD ARITHMETIC
 // ============================================================================
 
-/// Prime field modulus: p = 2^31 - 2^27 + 1 (BabyBear prime)
-///
-/// **BabyBear Prime Properties:**
-/// - p = 2013265921 = 2^31 - 2^27 + 1
-/// - φ(p) = p-1 = 2^27 × 15 = 2013265920
-/// - **FFT-friendly**: Has large 2-adic subgroups (max order 2^27 = 134,217,728)
-/// - Used in: Plonky2, Polygon Miden VM
-///
-/// **Why BabyBear?**
-/// 1. **FFT-friendly**: Supports domain sizes up to 2^27 (sufficient for STARK)
-/// 2. **u64-compatible**: Fits in 31 bits, easy arithmetic
-/// 3. **Production-proven**: Battle-tested in real ZK systems
-/// 4. **Fast**: No carry propagation for additions (31-bit values)
-///
-/// **Security**: ~31-bit field (acceptable for demonstrations; production uses 64+ bit fields)
 pub const FIELD_MODULUS: u64 = 2013265921; // 2^31 - 2^27 + 1
-
-/// Maximum 2-adic order: 2^27
-/// This is the largest power of 2 that divides (p-1)
 pub const MAX_2_ADIC_ORDER: usize = 27;
 
-/// Primitive root of unity (generator of multiplicative group)
-/// g^(p-1) ≡ 1 (mod p), and g has order p-1
-pub const PRIMITIVE_ROOT: u64 = 5; // Verified: 5 is a primitive root mod BabyBear
-
-/// Field element in GF(p)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FieldElement(u64);
 
 impl FieldElement {
-    /// Zero element
     pub const ZERO: Self = FieldElement(0);
-    
-    /// One element
     pub const ONE: Self = FieldElement(1);
-    
-    /// Create from u64 (with reduction)
+
     pub fn new(val: u64) -> Self {
         FieldElement(val % FIELD_MODULUS)
     }
-    
-    /// Get raw value
+
     pub fn value(&self) -> u64 {
         self.0
     }
-    
-    /// Modular reduction (Mersenne optimization)
+
     fn reduce(val: u128) -> u64 {
-        // Mersenne reduction: x mod (2^31 - 1) = (x & mask) + (x >> 31)
         let p = FIELD_MODULUS as u128;
-        let mut result = (val % p) as u64;
-        
-        // Ensure result < p
-        if result >= FIELD_MODULUS {
-            result -= FIELD_MODULUS;
-        }
-        
-        result
+        (val % p) as u64
     }
-    
-    /// Modular inverse (Extended Euclidean Algorithm)
+
     pub fn inverse(&self) -> Option<Self> {
         if self.0 == 0 {
             return None;
         }
-        
-        // Fermat's little theorem: a^(p-1) = 1 mod p
-        // So a^(-1) = a^(p-2) mod p
         Some(self.pow(FIELD_MODULUS - 2))
     }
-    
-    /// Modular exponentiation
+
     pub fn pow(&self, mut exp: u64) -> Self {
         let mut result = FieldElement::ONE;
         let mut base = *self;
-        
+
         while exp > 0 {
             if exp & 1 == 1 {
                 result = result * base;
@@ -115,14 +68,13 @@ impl FieldElement {
             base = base * base;
             exp >>= 1;
         }
-        
         result
     }
 }
 
 impl Add for FieldElement {
     type Output = Self;
-    
+
     fn add(self, rhs: Self) -> Self {
         let sum = (self.0 as u128) + (rhs.0 as u128);
         FieldElement(Self::reduce(sum))
@@ -131,7 +83,7 @@ impl Add for FieldElement {
 
 impl Sub for FieldElement {
     type Output = Self;
-    
+
     fn sub(self, rhs: Self) -> Self {
         if self.0 >= rhs.0 {
             FieldElement(self.0 - rhs.0)
@@ -143,7 +95,7 @@ impl Sub for FieldElement {
 
 impl Mul for FieldElement {
     type Output = Self;
-    
+
     fn mul(self, rhs: Self) -> Self {
         let prod = (self.0 as u128) * (rhs.0 as u128);
         FieldElement(Self::reduce(prod))
@@ -160,86 +112,83 @@ impl From<u64> for FieldElement {
 // POLYNOMIAL OPERATIONS
 // ============================================================================
 
-/// Polynomial over field (coefficients in GF(p))
 #[derive(Clone, Debug)]
 pub struct Polynomial {
     pub coeffs: Vec<FieldElement>,
 }
 
 impl Polynomial {
-    /// Create from coefficients
     pub fn new(coeffs: Vec<FieldElement>) -> Self {
         Self { coeffs }
     }
-    
-    /// Degree of polynomial
+
     pub fn degree(&self) -> usize {
         self.coeffs.len().saturating_sub(1)
     }
-    
-    /// Evaluate at point x
+
     pub fn eval(&self, x: FieldElement) -> FieldElement {
-        // Horner's method: p(x) = a0 + x(a1 + x(a2 + ...))
         let mut result = FieldElement::ZERO;
-        
         for &coeff in self.coeffs.iter().rev() {
             result = result * x + coeff;
         }
-        
         result
     }
-    
-    /// Interpolate polynomial from points (Lagrange interpolation)
+
     pub fn interpolate(points: &[(FieldElement, FieldElement)]) -> Self {
         let n = points.len();
         let mut result = vec![FieldElement::ZERO; n];
-        
+
         for i in 0..n {
             let (xi, yi) = points[i];
-            
-            // Compute Lagrange basis polynomial L_i(x)
             let mut basis = vec![yi];
-            
+
             for j in 0..n {
                 if i != j {
                     let (xj, _) = points[j];
-                    
-                    // L_i(x) *= (x - xj) / (xi - xj)
                     let denom = (xi - xj).inverse().unwrap();
-                    
-                    // Multiply basis by (x - xj)
+
                     let mut new_basis = vec![FieldElement::ZERO; basis.len() + 1];
                     for (k, &coeff) in basis.iter().enumerate() {
                         new_basis[k + 1] = new_basis[k + 1] + coeff;
                         new_basis[k] = new_basis[k] - coeff * xj;
                     }
-                    
-                    // Multiply by 1/(xi - xj)
                     for coeff in &mut new_basis {
                         *coeff = *coeff * denom;
                     }
-                    
                     basis = new_basis;
                 }
             }
-            
-            // Add L_i(x) to result
             for (k, coeff) in basis.iter().enumerate() {
                 if k < result.len() {
                     result[k] = result[k] + *coeff;
                 }
             }
         }
-        
         Polynomial::new(result)
     }
+}
+
+/// Znajdź generator F_p* (p-1 = 2^27·3·5).
+fn primitive_root() -> FieldElement {
+    let phi = FIELD_MODULUS - 1;
+    let factors: [u64; 3] = [2, 3, 5];
+    let candidates: [u64; 12] = [3, 5, 7, 10, 11, 13, 17, 19, 23, 29, 31, 37];
+    'outer: for &g in &candidates {
+        let cand = FieldElement::new(g);
+        for &q in &factors {
+            if cand.pow(phi / q) == FieldElement::ONE {
+                continue 'outer;
+            }
+        }
+        return cand;
+    }
+    panic!("no primitive root found");
 }
 
 // ============================================================================
 // MERKLE TREE (SHA-3 based)
 // ============================================================================
 
-/// Merkle tree commitment
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MerkleTree {
     pub root: [u8; 32],
@@ -247,7 +196,6 @@ pub struct MerkleTree {
 }
 
 impl MerkleTree {
-    /// Build Merkle tree from leaves
     pub fn build(leaves: &[[u8; 32]]) -> Self {
         if leaves.is_empty() {
             return Self {
@@ -255,78 +203,56 @@ impl MerkleTree {
                 layers: vec![],
             };
         }
-        
+
         let mut layers = vec![leaves.to_vec()];
-        
         while layers.last().unwrap().len() > 1 {
             let current = layers.last().unwrap();
             let mut next = Vec::new();
-            
             for chunk in current.chunks(2) {
                 let left = chunk[0];
                 let right = if chunk.len() > 1 { chunk[1] } else { chunk[0] };
-                
                 let mut h = Sha3_256::new();
                 h.update(b"MERKLE");
                 h.update(&left);
                 h.update(&right);
                 let parent: [u8; 32] = h.finalize().into();
-                
                 next.push(parent);
             }
-            
             layers.push(next);
         }
-        
         let root = layers.last().unwrap()[0];
-        
         Self { root, layers }
     }
-    
-    /// Generate Merkle proof for leaf at index
+
     pub fn prove(&self, index: usize) -> MerkleProof {
         let mut siblings = Vec::new();
         let mut idx = index;
-        
         for layer in &self.layers[..self.layers.len() - 1] {
             let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
             let sibling = layer.get(sibling_idx).copied().unwrap_or(layer[idx]);
             siblings.push(sibling);
             idx /= 2;
         }
-        
-        MerkleProof {
-            leaf_index: index,
-            siblings,
-        }
+        MerkleProof { leaf_index: index, siblings }
     }
-    
-    /// Verify Merkle proof
+
     pub fn verify(root: &[u8; 32], proof: &MerkleProof, leaf: &[u8; 32]) -> bool {
         let mut current = *leaf;
         let mut idx = proof.leaf_index;
-        
+
         for sibling in &proof.siblings {
-            let (left, right) = if idx % 2 == 0 {
-                (current, *sibling)
-            } else {
-                (*sibling, current)
-            };
-            
+            let (left, right) = if idx % 2 == 0 { (current, *sibling) } else { (*sibling, current) };
             let mut h = Sha3_256::new();
             h.update(b"MERKLE");
             h.update(&left);
             h.update(&right);
             current = h.finalize().into();
-            
             idx /= 2;
         }
-        
         &current == root
     }
 }
 
-/// Merkle proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MerkleProof {
     pub leaf_index: usize,
@@ -337,16 +263,10 @@ pub struct MerkleProof {
 // FRI (Fast Reed-Solomon IOP)
 // ============================================================================
 
-/// FRI configuration
 #[derive(Clone, Debug)]
 pub struct FRIConfig {
-    /// Blowup factor (code rate = 1/blowup)
     pub blowup_factor: usize,
-    
-    /// Number of queries for security
     pub num_queries: usize,
-    
-    /// Folding factor (2 for binary tree)
     pub fold_factor: usize,
 }
 
@@ -360,33 +280,20 @@ impl FRIConfig {
     }
 }
 
-/// FRI proof (commitment to polynomial)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FRIProof {
-    /// Merkle roots for each FRI layer
     pub layer_commitments: Vec<[u8; 32]>,
-    
-    /// Final polynomial (constant)
     pub final_poly: Vec<FieldElement>,
-    
-    /// Query proofs
     pub queries: Vec<FRIQuery>,
 }
 
-/// FRI query (single evaluation proof)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FRIQuery {
-    /// Index in domain
     pub index: usize,
-    
-    /// Values at each layer
     pub layer_values: Vec<FieldElement>,
-    
-    /// Merkle proofs for each layer
     pub merkle_proofs: Vec<MerkleProof>,
 }
 
-/// FRI prover
 pub struct FRIProver {
     config: FRIConfig,
 }
@@ -395,194 +302,128 @@ impl FRIProver {
     pub fn new(config: FRIConfig) -> Self {
         Self { config }
     }
-    
-    /// Commit to polynomial using FRI
+
     pub fn commit(&self, poly: &Polynomial, domain_size: usize) -> (FRIProof, Vec<MerkleTree>) {
-        // 1. Evaluate polynomial on extended domain
+        let mut layer_vals: Vec<Vec<FieldElement>> = Vec::new();
         let evaluations = self.evaluate_on_domain(poly, domain_size);
-        
-        // 2. Build Merkle tree for layer 0
-        let leaves: Vec<[u8; 32]> = evaluations
-            .iter()
-            .map(|&val| hash_field_element(val))
-            .collect();
-        
+        layer_vals.push(evaluations.clone());
+
+        let leaves: Vec<[u8; 32]> = evaluations.iter().map(|&val| hash_field_element(val)).collect();
         let tree = MerkleTree::build(&leaves);
         let mut trees = vec![tree.clone()];
         let mut layer_commitments = vec![tree.root];
-        
-        // 3. FRI folding (reduce degree by half each iteration)
+
         let mut current_evaluations = evaluations;
         let num_layers = (domain_size.trailing_zeros() as usize) - 1;
-        
+
         for _ in 0..num_layers {
-            // Fold: combine pairs (f(x), f(-x)) → f'(x^2)
             let folded = self.fold_layer(&current_evaluations);
-            
             if folded.len() <= 4 {
-                // Reached constant polynomial
                 break;
             }
-            
-            // Commit to folded layer
-            let leaves: Vec<[u8; 32]> = folded
-                .iter()
-                .map(|&val| hash_field_element(val))
-                .collect();
-            
+            let leaves: Vec<[u8; 32]> = folded.iter().map(|&val| hash_field_element(val)).collect();
             let tree = MerkleTree::build(&leaves);
             trees.push(tree.clone());
             layer_commitments.push(tree.root);
-            
+            layer_vals.push(folded.clone());
             current_evaluations = folded;
         }
-        
-        // 4. Final polynomial (should be constant or very small)
+
         let final_poly = current_evaluations;
-        
-        // 5. Generate queries
-        let queries = self.generate_queries(&trees, domain_size);
-        
+        let queries = self.generate_queries_with_merkle(&trees, &layer_vals);
+
         let proof = FRIProof {
             layer_commitments,
             final_poly,
             queries,
         };
-        
         (proof, trees)
     }
-    
-    /// Evaluate polynomial on domain
+
     fn evaluate_on_domain(&self, poly: &Polynomial, size: usize) -> Vec<FieldElement> {
         let mut evaluations = Vec::with_capacity(size);
-        
-        // Generate domain points (powers of primitive root)
         let generator = self.get_generator(size);
         let mut x = FieldElement::ONE;
-        
         for _ in 0..size {
             evaluations.push(poly.eval(x));
             x = x * generator;
         }
-        
         evaluations
     }
-    
-    /// Get n-th root of unity for domain of given size
-    ///
-    /// Returns ω where ω^size ≡ 1 (mod p) and ω has order exactly `size`.
-    ///
-    /// **Algorithm**:
-    /// 1. Check size is power of 2 and ≤ 2^MAX_2_ADIC_ORDER
-    /// 2. Compute ω = g^((p-1)/size) where g is primitive root
-    /// 3. Verify ω^size = 1 and ω^(size/2) ≠ 1
-    ///
-    /// # Panics
-    /// Panics if size is not a power of 2 or exceeds 2^27
-    fn get_generator(&self, size: usize) -> FieldElement {
-        // Validate size is power of 2
-        assert!(size.is_power_of_two(), "Domain size must be power of 2");
-        
-        // Validate size doesn't exceed max 2-adic order
-        let log_size = size.trailing_zeros() as usize;
-        assert!(
-            log_size <= MAX_2_ADIC_ORDER,
-            "Domain size 2^{} exceeds max 2^{}",
-            log_size,
-            MAX_2_ADIC_ORDER
-        );
 
-        // Special case: size = 1 → generator = 1
+    fn get_generator(&self, size: usize) -> FieldElement {
+        assert!(size.is_power_of_two(), "Domain size must be power of 2");
+        let log_size = size.trailing_zeros() as usize;
+        assert!(log_size <= MAX_2_ADIC_ORDER, "Domain size 2^{} exceeds max 2^{}", log_size, MAX_2_ADIC_ORDER);
+
         if size == 1 {
             return FieldElement::ONE;
         }
 
-        // Compute ω = PRIMITIVE_ROOT^((p-1)/size)
-        // This gives us a primitive n-th root of unity
         let exponent = (FIELD_MODULUS - 1) / (size as u64);
-        let omega = FieldElement::new(PRIMITIVE_ROOT).pow(exponent);
+        let omega = primitive_root().pow(exponent);
 
-        // Sanity check: ω^size should equal 1
-        #[cfg(debug_assertions)]
-        {
-            let omega_to_size = omega.pow(size as u64);
-            assert_eq!(
-                omega_to_size,
-                FieldElement::ONE,
-                "Generator ω^{} ≠ 1 (got {:?})",
-                size,
-                omega_to_size
-            );
-
-            // Also check ω has order exactly size (not a smaller order)
-            if size > 1 {
-                let omega_to_half = omega.pow((size / 2) as u64);
-                assert_ne!(
-                    omega_to_half,
-                    FieldElement::ONE,
-                    "Generator ω^{} = 1, but should have order {}",
-                    size / 2,
-                    size
-                );
-            }
+        let omega_to_size = omega.pow(size as u64);
+        assert!(omega_to_size == FieldElement::ONE, "ω^size != 1");
+        if size > 1 {
+            let omega_to_half = omega.pow((size / 2) as u64);
+            assert!(omega_to_half != FieldElement::ONE, "ord(ω) < size");
         }
-
         omega
     }
-    
-    /// Fold FRI layer (combine pairs)
+
     fn fold_layer(&self, evals: &[FieldElement]) -> Vec<FieldElement> {
-        let mut folded = Vec::with_capacity(evals.len() / 2);
-        
-        for chunk in evals.chunks(2) {
-            if chunk.len() == 2 {
-                // f'(x^2) = (f(x) + f(-x)) / 2
-                let sum = chunk[0] + chunk[1];
-                let two_inv = FieldElement::new(2).inverse().unwrap();
-                folded.push(sum * two_inv);
-            } else {
-                folded.push(chunk[0]);
-            }
+        let n = evals.len();
+        assert!(n.is_power_of_two() && n >= 2, "fold expects N=2^k, N>=2");
+        let half = n / 2;
+        let two_inv = FieldElement::new(2).inverse().unwrap();
+        let mut out = Vec::with_capacity(half);
+        for i in 0..half {
+            out.push((evals[i] + evals[i + half]) * two_inv);
         }
-        
-        folded
+        out
     }
-    
-    /// Generate random queries for proof
-    fn generate_queries(&self, trees: &[MerkleTree], domain_size: usize) -> Vec<FRIQuery> {
+
+    fn generate_queries_with_merkle(
+        &self,
+        trees: &[MerkleTree],
+        layers: &[Vec<FieldElement>],
+    ) -> Vec<FRIQuery> {
         let mut queries = Vec::new();
-        
-        // Use Fiat-Shamir to derive query indices
+
         let mut hasher = Sha3_256::new();
         hasher.update(b"FRI_QUERIES");
         for tree in trees {
             hasher.update(&tree.root);
         }
         let seed: [u8; 32] = hasher.finalize().into();
-        
+        let domain_size = layers.first().map(|v| v.len()).unwrap_or(0);
+
         for i in 0..self.config.num_queries {
-            // Derive index
             let mut h = Sha3_256::new();
             h.update(&seed);
             h.update(&(i as u64).to_le_bytes());
             let hash_bytes: [u8; 32] = h.finalize().into();
             let index = u64::from_le_bytes(hash_bytes[0..8].try_into().unwrap()) as usize % domain_size;
-            
-            // Generate query proof (simplified - would need actual values)
-            let query = FRIQuery {
-                index,
-                layer_values: vec![FieldElement::ZERO; trees.len()],
-                merkle_proofs: vec![],
-            };
-            
-            queries.push(query);
+
+            let mut vals = Vec::with_capacity(trees.len());
+            let mut proofs = Vec::with_capacity(trees.len());
+            let mut idx = index;
+            for (lvl, tree) in trees.iter().enumerate() {
+                let cur_len = layers[lvl].len();
+                let idx_lvl = idx % cur_len;
+                vals.push(layers[lvl][idx_lvl]);
+                proofs.push(tree.prove(idx_lvl));
+                if cur_len > 1 {
+                    idx = idx_lvl % (cur_len / 2);
+                }
+            }
+            queries.push(FRIQuery { index, layer_values: vals, merkle_proofs: proofs });
         }
-        
         queries
     }
 }
 
-/// FRI verifier
 pub struct FRIVerifier {
     config: FRIConfig,
 }
@@ -591,32 +432,33 @@ impl FRIVerifier {
     pub fn new(config: FRIConfig) -> Self {
         Self { config }
     }
-    
-    /// Verify FRI proof
-    pub fn verify(&self, proof: &FRIProof, claimed_degree: usize) -> bool {
-        // 1. Check layer commitments are valid
+
+    pub fn verify(&self, proof: &FRIProof, _claimed_degree: usize) -> bool {
         if proof.layer_commitments.is_empty() {
             return false;
         }
-        
-        // 2. Verify final polynomial has low degree
         if proof.final_poly.len() > 4 {
-            eprintln!("❌ Final polynomial too large");
             return false;
         }
-        
-        // 3. Verify queries
         for query in &proof.queries {
             if !self.verify_query(query, proof) {
                 return false;
             }
         }
-        
         true
     }
-    
-    fn verify_query(&self, _query: &FRIQuery, _proof: &FRIProof) -> bool {
-        // Simplified - would verify Merkle proofs and folding consistency
+
+    fn verify_query(&self, query: &FRIQuery, proof: &FRIProof) -> bool {
+        if proof.layer_commitments.len() != query.merkle_proofs.len() {
+            return false;
+        }
+        for (lvl, root) in proof.layer_commitments.iter().enumerate() {
+            let leaf = hash_field_element(query.layer_values[lvl]);
+            if !MerkleTree::verify(root, &query.merkle_proofs[lvl], &leaf) {
+                return false;
+            }
+        }
+        // TODO: algebraiczna weryfikacja foldingu (wymaga par wartości).
         true
     }
 }
@@ -625,56 +467,36 @@ impl FRIVerifier {
 // STARK PROOF SYSTEM
 // ============================================================================
 
-/// STARK proof (complete zero-knowledge proof)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct STARKProof {
-    /// Execution trace commitment
     pub trace_commitment: [u8; 32],
-    
-    /// Constraint polynomial commitment
     pub constraint_commitment: [u8; 32],
-    
-    /// FRI proof (low-degree test)
     pub fri_proof: FRIProof,
-    
-    /// PUBLIC INPUTS LAYOUT (dla range+commitment):
-    /// ```
-    /// [0]     = value (u64, proved to be in [0, 2^64-1])
-    /// [1..=4] = commitment (Hash32 encoded as 4×u64 LE)
-    ///           commitment = SHA3("TX_OUTPUT_STARK.v1" || value || blinding || recipient)
-    /// ```
-    /// 
-    /// **Security**: Commitment binds (value, blinding, recipient) to proof.
-    /// Tampering with ANY field invalidates the proof.
     pub public_inputs: Vec<u64>,
 }
 
 impl STARKProof {
-    /// Proof size in bytes
     pub fn size_bytes(&self) -> usize {
-        let mut size = 32; // trace_commitment
-        size += 32; // constraint_commitment
+        let mut size = 32;
+        size += 32;
         size += self.fri_proof.layer_commitments.len() * 32;
         size += self.fri_proof.final_poly.len() * 8;
-        size += self.fri_proof.queries.len() * 100; // Rough estimate
+        size += self.fri_proof.queries.len() * 100;
         size += self.public_inputs.len() * 8;
         size
     }
 }
 
-/// STARK prover
 pub struct STARKProver {
     fri_prover: FRIProver,
 }
 
 // ============================================================================
-// PUBLIC INPUTS ENCODING (Range Proof + Commitment Binding)
+// PUBLIC INPUTS ENCODING
 // ============================================================================
 
-/// Wymiary public_inputs dla range proof z commitmentem
-pub const RANGE_PROOF_PUBLIC_INPUTS_LEN: usize = 5; // value + 4×u64 commitment
+pub const RANGE_PROOF_PUBLIC_INPUTS_LEN: usize = 5;
 
-/// Zakoduj (value, commitment) jako public_inputs: [value, c0, c1, c2, c3]
 pub fn encode_range_public_inputs(value: u64, commitment: &Hash32) -> Vec<u64> {
     let mut out = Vec::with_capacity(RANGE_PROOF_PUBLIC_INPUTS_LEN);
     out.push(value);
@@ -686,7 +508,6 @@ pub fn encode_range_public_inputs(value: u64, commitment: &Hash32) -> Vec<u64> {
     out
 }
 
-/// Odczytaj commitment z public_inputs (indeksy 1..=4)
 pub fn decode_commitment_from_public_inputs(inputs: &[u64]) -> Option<Hash32> {
     if inputs.len() < RANGE_PROOF_PUBLIC_INPUTS_LEN {
         return None;
@@ -705,45 +526,25 @@ pub fn decode_commitment_from_public_inputs(inputs: &[u64]) -> Option<Hash32> {
 impl STARKProver {
     pub fn new() -> Self {
         let config = FRIConfig::default();
-        Self {
-            fri_prover: FRIProver::new(config),
-        }
+        Self { fri_prover: FRIProver::new(config) }
     }
-    
-    /// Prove range: value ∈ [0, 2^64-1] (DEPRECATED)
-    ///
-    /// **DEPRECATED**: Use `prove_range_with_commitment()` instead.
-    /// This version does NOT bind the proof to a commitment, making it vulnerable
-    /// to proof reuse attacks.
-    ///
-    /// This generates a full STARK proof with:
-    /// - Execution trace (bit decomposition)
-    /// - AIR constraints (each bit ∈ {0,1})
-    /// - FRI low-degree proof
+
     #[deprecated(note = "Use prove_range_with_commitment(value, commitment) instead")]
     pub fn prove_range(value: u64) -> STARKProof {
         let prover = Self::new();
-        
-        // 1. Generate execution trace
+
         let trace = prover.generate_range_trace(value);
-        
-        // 2. Commit to trace
-        let trace_leaves: Vec<[u8; 32]> = trace
-            .iter()
-            .map(|&val| hash_field_element(val))
-            .collect();
+        let trace_leaves: Vec<[u8; 32]> = trace.iter().map(|&val| hash_field_element(val)).collect();
         let trace_tree = MerkleTree::build(&trace_leaves);
-        
-        // 3. Build constraint polynomial
+
         let constraint_poly = prover.build_constraint_poly(&trace);
-        
-        // 4. Commit to constraints
-        let constraint_leaves: Vec<[u8; 32]> = vec![hash_field_element(FieldElement::ZERO); 64];
+        let constraint_evals = prover.fri_prover.evaluate_on_domain(&constraint_poly, 128);
+        let constraint_leaves: Vec<[u8; 32]> =
+            constraint_evals.iter().map(|&v| hash_field_element(v)).collect();
         let constraint_tree = MerkleTree::build(&constraint_leaves);
-        
-        // 5. Generate FRI proof
+
         let (fri_proof, _trees) = prover.fri_prover.commit(&constraint_poly, 128);
-        
+
         STARKProof {
             trace_commitment: trace_tree.root,
             constraint_commitment: constraint_tree.root,
@@ -751,45 +552,22 @@ impl STARKProver {
             public_inputs: vec![value],
         }
     }
-    
-    /// Prove range with commitment binding (RECOMMENDED)
-    ///
-    /// Generates a STARK proof that:
-    /// 1. Proves `value ∈ [0, 2^64-1]` (range constraint)
-    /// 2. Binds proof to `commitment` (prevents proof reuse)
-    ///
-    /// **Security**: The commitment is encoded in `public_inputs[1..=4]`,
-    /// making it part of the Fiat-Shamir transcript. Tampering with
-    /// commitment invalidates the proof.
-    ///
-    /// # Arguments
-    /// * `value` - The secret value to prove (0 ≤ value < 2^64)
-    /// * `commitment` - SHA3-256 commitment to (value, blinding, recipient)
-    ///
-    /// # Example
-    /// ```ignore
-    /// let commitment = sha3_256(b"TX_OUTPUT_STARK.v1" || value || blinding || recipient);
-    /// let proof = STARKProver::prove_range_with_commitment(1000, &commitment);
-    /// ```
+
     pub fn prove_range_with_commitment(value: u64, commitment: &Hash32) -> STARKProof {
         let prover = Self::new();
 
-        // Generate execution trace (bit decomposition)
         let trace = prover.generate_range_trace(value);
-        let trace_leaves: Vec<[u8; 32]> =
-            trace.iter().map(|&val| hash_field_element(val)).collect();
+        let trace_leaves: Vec<[u8; 32]> = trace.iter().map(|&val| hash_field_element(val)).collect();
         let trace_tree = MerkleTree::build(&trace_leaves);
 
-        // Build constraint polynomial (each bit ∈ {0, 1})
         let constraint_poly = prover.build_constraint_poly(&trace);
+        let constraint_evals = prover.fri_prover.evaluate_on_domain(&constraint_poly, 128);
         let constraint_leaves: Vec<[u8; 32]> =
-            vec![hash_field_element(FieldElement::ZERO); 64];
+            constraint_evals.iter().map(|&v| hash_field_element(v)).collect();
         let constraint_tree = MerkleTree::build(&constraint_leaves);
 
-        // FRI commitment (low-degree proof)
         let (fri_proof, _trees) = prover.fri_prover.commit(&constraint_poly, 128);
 
-        // Encode public inputs: [value, commitment_u64_0, ..., commitment_u64_3]
         let public_inputs = encode_range_public_inputs(value, commitment);
 
         STARKProof {
@@ -799,39 +577,27 @@ impl STARKProver {
             public_inputs,
         }
     }
-    
-    /// Generate execution trace for range proof
+
     fn generate_range_trace(&self, value: u64) -> Vec<FieldElement> {
         let mut trace = Vec::with_capacity(64);
-        
-        // Bit decomposition
         for i in 0..64 {
             let bit = (value >> i) & 1;
             trace.push(FieldElement::new(bit));
         }
-        
         trace
     }
-    
-    /// Build constraint polynomial from trace
+
     fn build_constraint_poly(&self, trace: &[FieldElement]) -> Polynomial {
-        // Constraint: each trace[i] ∈ {0, 1}
-        // Algebraic: trace[i] * (trace[i] - 1) = 0
-        
         let mut points = Vec::new();
-        
         for (i, &val) in trace.iter().enumerate() {
             let x = FieldElement::new(i as u64);
             let constraint = val * (val - FieldElement::ONE);
             points.push((x, constraint));
         }
-        
-        // Interpolate
         Polynomial::interpolate(&points)
     }
 }
 
-/// STARK verifier
 pub struct STARKVerifier {
     fri_verifier: FRIVerifier,
 }
@@ -839,35 +605,24 @@ pub struct STARKVerifier {
 impl STARKVerifier {
     pub fn new() -> Self {
         let config = FRIConfig::default();
-        Self {
-            fri_verifier: FRIVerifier::new(config),
-        }
+        Self { fri_verifier: FRIVerifier::new(config) }
     }
-    
-    /// Verify STARK proof
+
     pub fn verify(proof: &STARKProof) -> bool {
         let verifier = Self::new();
-        
-        // 1. Check trace commitment
+
         if proof.trace_commitment == [0u8; 32] {
             return false;
         }
-        
-        // 2. Check constraint commitment
         if proof.constraint_commitment == [0u8; 32] {
             return false;
         }
-        
-        // 3. Verify FRI proof (low-degree test)
         if !verifier.fri_verifier.verify(&proof.fri_proof, 64) {
             return false;
         }
-        
-        // 4. Check public inputs
         if proof.public_inputs.is_empty() {
             return false;
         }
-        
         true
     }
 }
@@ -876,7 +631,6 @@ impl STARKVerifier {
 // UTILITIES
 // ============================================================================
 
-/// Hash field element to 32 bytes
 fn hash_field_element(elem: FieldElement) -> [u8; 32] {
     let mut h = Sha3_256::new();
     h.update(b"FIELD");
@@ -891,124 +645,83 @@ fn hash_field_element(elem: FieldElement) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_field_arithmetic() {
         let a = FieldElement::new(100);
         let b = FieldElement::new(50);
-        
         let sum = a + b;
         assert_eq!(sum.value(), 150);
-        
         let diff = a - b;
         assert_eq!(diff.value(), 50);
-        
         let prod = a * b;
         assert_eq!(prod.value(), 5000);
     }
-    
+
     #[test]
     fn test_field_inverse() {
         let a = FieldElement::new(7);
         let a_inv = a.inverse().unwrap();
-        
         let prod = a * a_inv;
         assert_eq!(prod, FieldElement::ONE);
     }
-    
+
     #[test]
     fn test_polynomial_eval() {
-        // p(x) = 1 + 2x + 3x^2
-        let poly = Polynomial::new(vec![
-            FieldElement::new(1),
-            FieldElement::new(2),
-            FieldElement::new(3),
-        ]);
-        
-        // p(2) = 1 + 4 + 12 = 17
+        let poly = Polynomial::new(vec![FieldElement::new(1), FieldElement::new(2), FieldElement::new(3)]);
         let result = poly.eval(FieldElement::new(2));
         assert_eq!(result.value(), 17);
     }
-    
+
     #[test]
     fn test_merkle_tree() {
-        let leaves = vec![
-            [1u8; 32],
-            [2u8; 32],
-            [3u8; 32],
-            [4u8; 32],
-        ];
-        
+        let leaves = vec![[1u8; 32], [2u8; 32], [3u8; 32], [4u8; 32]];
         let tree = MerkleTree::build(&leaves);
-        
         let proof = tree.prove(2);
         assert!(MerkleTree::verify(&tree.root, &proof, &leaves[2]));
     }
-    
+
     #[test]
     fn test_fri_basic() {
         let config = FRIConfig::default();
         let prover = FRIProver::new(config);
-        
-        // Simple polynomial: f(x) = x
-        let poly = Polynomial::new(vec![
-            FieldElement::ZERO,
-            FieldElement::ONE,
-        ]);
-        
+        let poly = Polynomial::new(vec![FieldElement::ZERO, FieldElement::ONE]);
         let (proof, _trees) = prover.commit(&poly, 16);
-        
         assert!(!proof.layer_commitments.is_empty());
         assert!(!proof.final_poly.is_empty());
+        assert!(!proof.queries.is_empty());
     }
-    
+
     #[test]
     fn test_stark_range_proof() {
         let value = 12345u64;
-        
         let proof = STARKProver::prove_range(value);
-        
         assert_eq!(proof.public_inputs[0], value);
         assert!(!proof.fri_proof.layer_commitments.is_empty());
-        
         let valid = STARKVerifier::verify(&proof);
-        assert!(valid, "STARK verification failed");
+        assert!(valid);
     }
-    
+
     #[test]
     fn test_stark_proof_size() {
         let proof = STARKProver::prove_range(99999);
         let size = proof.size_bytes();
-        
-        println!("✅ STARK proof size: {} bytes ({} KB)", size, size / 1024);
-        
-        // Should be reasonable (< 500 KB)
-        assert!(size < 500_000, "Proof too large");
+        assert!(size < 500_000); // Realistic: ~100-400 KB
     }
-    
+
     #[test]
     fn test_stark_performance() {
         use std::time::Instant;
-        
         let value = 777777u64;
-        
-        // Prove
         let start = Instant::now();
         let proof = STARKProver::prove_range(value);
         let prove_time = start.elapsed();
-        
-        // Verify
         let start = Instant::now();
         let valid = STARKVerifier::verify(&proof);
         let verify_time = start.elapsed();
-        
         assert!(valid);
-        
-        println!("✅ STARK Prove: {:?}", prove_time);
-        println!("✅ STARK Verify: {:?}", verify_time);
-        
-        // Should be reasonable
-        assert!(prove_time.as_millis() < 2000, "Proving too slow");
-        assert!(verify_time.as_millis() < 500, "Verification too slow");
+        // Realistic expectations (not optimized):
+        assert!(prove_time.as_millis() < 2000);  // < 2s prove
+        assert!(verify_time.as_millis() < 500);  // < 500ms verify
     }
 }
