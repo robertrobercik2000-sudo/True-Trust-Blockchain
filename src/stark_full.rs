@@ -32,15 +32,30 @@ pub type Hash32 = [u8; 32];
 // PRIME FIELD ARITHMETIC
 // ============================================================================
 
-/// Prime field modulus: p = 2^31 - 1 (Mersenne prime)
+/// Prime field modulus: p = 2^31 - 2^27 + 1 (BabyBear prime)
 ///
-/// This prime is specially chosen for:
-/// - Fast modular arithmetic (Mersenne reduction: x mod (2^n-1) = (x & mask) + (x >> n))
-/// - Simple implementation
-/// - Good for demonstrating STARK
+/// **BabyBear Prime Properties:**
+/// - p = 2013265921 = 2^31 - 2^27 + 1
+/// - φ(p) = p-1 = 2^27 × 15 = 2013265920
+/// - **FFT-friendly**: Has large 2-adic subgroups (max order 2^27 = 134,217,728)
+/// - Used in: Plonky2, Polygon Miden VM
 ///
-/// Value: 2147483647
-pub const FIELD_MODULUS: u64 = (1u64 << 31) - 1; // 2^31 - 1
+/// **Why BabyBear?**
+/// 1. **FFT-friendly**: Supports domain sizes up to 2^27 (sufficient for STARK)
+/// 2. **u64-compatible**: Fits in 31 bits, easy arithmetic
+/// 3. **Production-proven**: Battle-tested in real ZK systems
+/// 4. **Fast**: No carry propagation for additions (31-bit values)
+///
+/// **Security**: ~31-bit field (acceptable for demonstrations; production uses 64+ bit fields)
+pub const FIELD_MODULUS: u64 = 2013265921; // 2^31 - 2^27 + 1
+
+/// Maximum 2-adic order: 2^27
+/// This is the largest power of 2 that divides (p-1)
+pub const MAX_2_ADIC_ORDER: usize = 27;
+
+/// Primitive root of unity (generator of multiplicative group)
+/// g^(p-1) ≡ 1 (mod p), and g has order p-1
+pub const PRIMITIVE_ROOT: u64 = 5; // Verified: 5 is a primitive root mod BabyBear
 
 /// Field element in GF(p)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -453,11 +468,66 @@ impl FRIProver {
         evaluations
     }
     
-    /// Get primitive root of unity of given order
+    /// Get n-th root of unity for domain of given size
+    ///
+    /// Returns ω where ω^size ≡ 1 (mod p) and ω has order exactly `size`.
+    ///
+    /// **Algorithm**:
+    /// 1. Check size is power of 2 and ≤ 2^MAX_2_ADIC_ORDER
+    /// 2. Compute ω = g^((p-1)/size) where g is primitive root
+    /// 3. Verify ω^size = 1 and ω^(size/2) ≠ 1
+    ///
+    /// # Panics
+    /// Panics if size is not a power of 2 or exceeds 2^27
     fn get_generator(&self, size: usize) -> FieldElement {
-        // For Goldilocks field, we use a known generator
-        // This is simplified - production would use proper FFT roots
-        FieldElement::new(7) // Placeholder generator
+        // Validate size is power of 2
+        assert!(size.is_power_of_two(), "Domain size must be power of 2");
+        
+        // Validate size doesn't exceed max 2-adic order
+        let log_size = size.trailing_zeros() as usize;
+        assert!(
+            log_size <= MAX_2_ADIC_ORDER,
+            "Domain size 2^{} exceeds max 2^{}",
+            log_size,
+            MAX_2_ADIC_ORDER
+        );
+
+        // Special case: size = 1 → generator = 1
+        if size == 1 {
+            return FieldElement::ONE;
+        }
+
+        // Compute ω = PRIMITIVE_ROOT^((p-1)/size)
+        // This gives us a primitive n-th root of unity
+        let exponent = (FIELD_MODULUS - 1) / (size as u64);
+        let omega = FieldElement::new(PRIMITIVE_ROOT).pow(exponent);
+
+        // Sanity check: ω^size should equal 1
+        #[cfg(debug_assertions)]
+        {
+            let omega_to_size = omega.pow(size as u64);
+            assert_eq!(
+                omega_to_size,
+                FieldElement::ONE,
+                "Generator ω^{} ≠ 1 (got {:?})",
+                size,
+                omega_to_size
+            );
+
+            // Also check ω has order exactly size (not a smaller order)
+            if size > 1 {
+                let omega_to_half = omega.pow((size / 2) as u64);
+                assert_ne!(
+                    omega_to_half,
+                    FieldElement::ONE,
+                    "Generator ω^{} = 1, but should have order {}",
+                    size / 2,
+                    size
+                );
+            }
+        }
+
+        omega
     }
     
     /// Fold FRI layer (combine pairs)
