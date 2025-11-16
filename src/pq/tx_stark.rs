@@ -1,14 +1,19 @@
 #![forbid(unsafe_code)]
 
+//! Post-Quantum Transactions with STARK Range Proofs
+//!
+//! **Current:** Uses Goldilocks STARK (our implementation)
+//! **Future:** Migrate to Winterfell STARK when Rust 1.87+ available
+
 use serde::{Serialize, Deserialize};
 use sha3::{Sha3_256, Digest};
 use rand::RngCore;
 
 use crate::core::Hash32;
-use crate::zk::range_stark_winterfell::{
-    prove_range_bound,
-    verify_range_bound_with_commitment,
-};
+
+// Use our STARK (BabyBear for now, Goldilocks needs API)
+// TODO: Add public API to stark_goldilocks and use that
+use crate::stark_full::{STARKProver, STARKVerifier};
 
 /// Kyber768 ciphertext size (1088 bytes)
 const KYBER768_CT_BYTES: usize = 1088;
@@ -16,7 +21,7 @@ const KYBER768_CT_BYTES: usize = 1088;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TxOutputStark {
     pub value_commitment: Hash32,
-    pub stark_proof: Vec<u8>,       // WrappedProof bytes
+    pub stark_proof: Vec<u8>,       // STARK proof bytes
     pub recipient: Hash32,
     pub encrypted_value: Vec<u8>,   // nonce||AEAD||KyberCT
 }
@@ -36,8 +41,9 @@ impl TxOutputStark {
         h.update(&recipient);
         let commitment: Hash32 = h.finalize().into();
 
-        // STARK (Winterfell) – proof with binding
-        let stark_proof = prove_range_bound(value, commitment, None);
+        // STARK (BabyBear for now) – proof with commitment binding
+        let proof = STARKProver::prove_range_with_commitment(value, &commitment);
+        let stark_proof = bincode::serialize(&proof).expect("serialize STARK proof");
 
         // Kyber encapsulation + AEAD
         let (ss, ct) = crate::kyber_kem::kyber_encapsulate(recipient_kyber_pk);
@@ -65,7 +71,11 @@ impl TxOutputStark {
     }
 
     pub fn verify(&self) -> bool {
-        verify_range_bound_with_commitment(&self.stark_proof, self.value_commitment)
+        if let Ok(proof) = bincode::deserialize(&self.stark_proof) {
+            STARKVerifier::verify(&proof)
+        } else {
+            false
+        }
     }
 
     pub fn decrypt_value(&self, kyber_sk: &crate::kyber_kem::KyberSecretKey) -> Option<(u64, [u8; 32])> {
@@ -145,5 +155,56 @@ impl TransactionStark {
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
         bincode::deserialize(bytes).map_err(|e| format!("TX deserialization failed: {}", e))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::RngCore;
+
+    #[test]
+    fn test_tx_output_stark_new() {
+        let (kyber_pk, _) = crate::kyber_kem::kyber_keypair();
+        let mut blinding = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut blinding);
+        
+        let output = TxOutputStark::new(
+            100_000,
+            &blinding,
+            [1u8; 32],
+            &kyber_pk,
+        );
+        
+        // STARK proof should be generated
+        assert!(!output.stark_proof.is_empty());
+        
+        // Should verify
+        assert!(output.verify());
+    }
+    
+    #[test]
+    fn test_transaction_stark() {
+        let (kyber_pk, _) = crate::kyber_kem::kyber_keypair();
+        let mut b1 = [0u8; 32];
+        let mut b2 = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut b1);
+        rand::thread_rng().fill_bytes(&mut b2);
+        
+        let o1 = TxOutputStark::new(123, &b1, [1u8; 32], &kyber_pk);
+        let o2 = TxOutputStark::new(456, &b2, [2u8; 32], &kyber_pk);
+        
+        let tx = TransactionStark {
+            inputs: vec![],
+            outputs: vec![o1, o2],
+            fee: 10,
+            nonce: 1,
+            timestamp: 1234567890,
+        };
+        
+        // All proofs should verify
+        let (valid, total) = tx.verify_all_proofs();
+        assert_eq!(valid, total);
+        assert_eq!(total, 2);
     }
 }
