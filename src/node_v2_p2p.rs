@@ -268,11 +268,11 @@ impl NodeV2P2p {
         // 5. Start peer loop
         let node = self.clone();
         let peer_for_loop = peer.clone();
-        let peer_addr = peer.addr;
+        let peer_addr_copy = peer.addr;
         tokio::spawn(async move {
-            if let Err(e) = node.peer_loop(reader, writer, peer_for_loop).await {
-                eprintln!("❌ peer_loop (client) {}: {}", peer_addr, e);
-                node.peers.write().await.remove(&peer_addr);
+            if let Err(e) = node.clone().peer_loop(reader, writer, peer_for_loop).await {
+                eprintln!("❌ peer_loop (client) {}: {}", peer_addr_copy, e);
+                node.peers.write().await.remove(&peer_addr_copy);
             }
         });
 
