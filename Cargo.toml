@@ -61,6 +61,10 @@ ark-r1cs-std = { version = "0.4", default-features = false, optional = true }
 ark-crypto-primitives = { version = "0.4", default-features = false, features = ["r1cs"], optional = true }
 ark-serialize = { version = "0.4", default-features = false, optional = true }
 
+# Winterfell STARK (production-grade, Facebook/Meta, Polygon Miden VM)
+# NOTE: Commented out due to API incompatibility (0.9 vs 0.13+)
+# winterfell = { version = "0.9", default-features = false, features = ["std"] }
+
 [features]
 # STARK field selection (see QUANTUM_SECURITY_DECISION.md for details)
 default = ["goldilocks"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
