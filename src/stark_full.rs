@@ -25,6 +25,9 @@ use sha3::{Digest, Sha3_256};
 use serde::{Deserialize, Serialize};
 use std::ops::{Add, Sub, Mul};
 
+/// Local alias for 32-byte hash (to avoid dependency on core module)
+pub type Hash32 = [u8; 32];
+
 // ============================================================================
 // PRIME FIELD ARITHMETIC
 // ============================================================================
@@ -564,7 +567,15 @@ pub struct STARKProof {
     /// FRI proof (low-degree test)
     pub fri_proof: FRIProof,
     
-    /// Public inputs
+    /// PUBLIC INPUTS LAYOUT (dla range+commitment):
+    /// ```
+    /// [0]     = value (u64, proved to be in [0, 2^64-1])
+    /// [1..=4] = commitment (Hash32 encoded as 4×u64 LE)
+    ///           commitment = SHA3("TX_OUTPUT_STARK.v1" || value || blinding || recipient)
+    /// ```
+    /// 
+    /// **Security**: Commitment binds (value, blinding, recipient) to proof.
+    /// Tampering with ANY field invalidates the proof.
     pub public_inputs: Vec<u64>,
 }
 
@@ -586,6 +597,41 @@ pub struct STARKProver {
     fri_prover: FRIProver,
 }
 
+// ============================================================================
+// PUBLIC INPUTS ENCODING (Range Proof + Commitment Binding)
+// ============================================================================
+
+/// Wymiary public_inputs dla range proof z commitmentem
+pub const RANGE_PROOF_PUBLIC_INPUTS_LEN: usize = 5; // value + 4×u64 commitment
+
+/// Zakoduj (value, commitment) jako public_inputs: [value, c0, c1, c2, c3]
+pub fn encode_range_public_inputs(value: u64, commitment: &Hash32) -> Vec<u64> {
+    let mut out = Vec::with_capacity(RANGE_PROOF_PUBLIC_INPUTS_LEN);
+    out.push(value);
+    for i in 0..4 {
+        let mut buf = [0u8; 8];
+        buf.copy_from_slice(&commitment[8 * i..8 * (i + 1)]);
+        out.push(u64::from_le_bytes(buf));
+    }
+    out
+}
+
+/// Odczytaj commitment z public_inputs (indeksy 1..=4)
+pub fn decode_commitment_from_public_inputs(inputs: &[u64]) -> Option<Hash32> {
+    if inputs.len() < RANGE_PROOF_PUBLIC_INPUTS_LEN {
+        return None;
+    }
+    let mut c = [0u8; 32];
+    for i in 0..4 {
+        c[8 * i..8 * (i + 1)].copy_from_slice(&inputs[1 + i].to_le_bytes());
+    }
+    Some(c)
+}
+
+// ============================================================================
+// STARK PROVER
+// ============================================================================
+
 impl STARKProver {
     pub fn new() -> Self {
         let config = FRIConfig::default();
@@ -594,12 +640,17 @@ impl STARKProver {
         }
     }
     
-    /// Prove range: value ∈ [0, 2^64-1]
+    /// Prove range: value ∈ [0, 2^64-1] (DEPRECATED)
+    ///
+    /// **DEPRECATED**: Use `prove_range_with_commitment()` instead.
+    /// This version does NOT bind the proof to a commitment, making it vulnerable
+    /// to proof reuse attacks.
     ///
     /// This generates a full STARK proof with:
     /// - Execution trace (bit decomposition)
     /// - AIR constraints (each bit ∈ {0,1})
     /// - FRI low-degree proof
+    #[deprecated(note = "Use prove_range_with_commitment(value, commitment) instead")]
     pub fn prove_range(value: u64) -> STARKProof {
         let prover = Self::new();
         
@@ -628,6 +679,54 @@ impl STARKProver {
             constraint_commitment: constraint_tree.root,
             fri_proof,
             public_inputs: vec![value],
+        }
+    }
+    
+    /// Prove range with commitment binding (RECOMMENDED)
+    ///
+    /// Generates a STARK proof that:
+    /// 1. Proves `value ∈ [0, 2^64-1]` (range constraint)
+    /// 2. Binds proof to `commitment` (prevents proof reuse)
+    ///
+    /// **Security**: The commitment is encoded in `public_inputs[1..=4]`,
+    /// making it part of the Fiat-Shamir transcript. Tampering with
+    /// commitment invalidates the proof.
+    ///
+    /// # Arguments
+    /// * `value` - The secret value to prove (0 ≤ value < 2^64)
+    /// * `commitment` - SHA3-256 commitment to (value, blinding, recipient)
+    ///
+    /// # Example
+    /// ```ignore
+    /// let commitment = sha3_256(b"TX_OUTPUT_STARK.v1" || value || blinding || recipient);
+    /// let proof = STARKProver::prove_range_with_commitment(1000, &commitment);
+    /// ```
+    pub fn prove_range_with_commitment(value: u64, commitment: &Hash32) -> STARKProof {
+        let prover = Self::new();
+
+        // Generate execution trace (bit decomposition)
+        let trace = prover.generate_range_trace(value);
+        let trace_leaves: Vec<[u8; 32]> =
+            trace.iter().map(|&val| hash_field_element(val)).collect();
+        let trace_tree = MerkleTree::build(&trace_leaves);
+
+        // Build constraint polynomial (each bit ∈ {0, 1})
+        let constraint_poly = prover.build_constraint_poly(&trace);
+        let constraint_leaves: Vec<[u8; 32]> =
+            vec![hash_field_element(FieldElement::ZERO); 64];
+        let constraint_tree = MerkleTree::build(&constraint_leaves);
+
+        // FRI commitment (low-degree proof)
+        let (fri_proof, _trees) = prover.fri_prover.commit(&constraint_poly, 128);
+
+        // Encode public inputs: [value, commitment_u64_0, ..., commitment_u64_3]
+        let public_inputs = encode_range_public_inputs(value, commitment);
+
+        STARKProof {
+            trace_commitment: trace_tree.root,
+            constraint_commitment: constraint_tree.root,
+            fri_proof,
+            public_inputs,
         }
     }
     

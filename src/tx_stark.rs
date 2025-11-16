@@ -21,8 +21,15 @@ use serde::{Serialize, Deserialize};
 use sha3::{Sha3_256, Digest};
 use rand::RngCore;
 
-use crate::stark_full::{STARKProver, STARKVerifier, STARKProof};
+use crate::stark_full::{
+    STARKProver, STARKVerifier, STARKProof,
+    encode_range_public_inputs, decode_commitment_from_public_inputs,
+    RANGE_PROOF_PUBLIC_INPUTS_LEN,
+};
 use crate::core::Hash32;
+
+/// Kyber768 ciphertext size (1088 bytes)
+const KYBER768_CT_BYTES: usize = 1088;
 
 // =================== Transaction Output (STARK) ===================
 
@@ -78,8 +85,8 @@ impl TxOutputStark {
         h.update(&recipient);
         let commitment: Hash32 = h.finalize().into();
         
-        // 2. STARK range proof (0 ≤ value < 2^64)
-        let proof = STARKProver::prove_range(value);
+        // 2. STARK range proof BOUND to commitment (prevents proof reuse!)
+        let proof = STARKProver::prove_range_with_commitment(value, &commitment);
         let stark_proof = bincode::serialize(&proof)
             .expect("STARK proof serialization failed");
         
@@ -119,36 +126,62 @@ impl TxOutputStark {
         }
     }
     
-    /// Verify STARK range proof
+    /// Verify STARK range proof + commitment binding
     ///
-    /// Returns `true` if proof is valid (0 ≤ value < 2^64).
+    /// Performs TWO critical checks:
+    /// 1. **Commitment binding**: Proof's embedded commitment must match `self.value_commitment`
+    /// 2. **Range constraint**: Proof must validate `0 ≤ value < 2^64`
+    ///
+    /// **Security**: Prevents proof reuse attacks. A proof generated for output A
+    /// cannot be used for output B (different commitments).
     ///
     /// # Performance
     /// ~50ms (vs ~5ms for Bulletproofs)
     pub fn verify(&self) -> bool {
-        if let Ok(proof) = bincode::deserialize::<STARKProof>(&self.stark_proof) {
-            STARKVerifier::verify(&proof)
-        } else {
-            false
+        // 1. Deserialize proof
+        let proof: STARKProof = match bincode::deserialize(&self.stark_proof) {
+            Ok(p) => p,
+            Err(_) => return false,
+        };
+
+        // 2. Check public inputs layout
+        if proof.public_inputs.len() != RANGE_PROOF_PUBLIC_INPUTS_LEN {
+            return false; // Expected: [value, c0, c1, c2, c3]
         }
+
+        // 3. **CRITICAL: Commitment binding check**
+        if let Some(comm_from_proof) = decode_commitment_from_public_inputs(&proof.public_inputs) {
+            if comm_from_proof != self.value_commitment {
+                // ❌ Proof was generated for a different output!
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        // 4. Verify STARK proof itself (range constraint + FRI)
+        STARKVerifier::verify(&proof)
     }
     
-    /// Decrypt value (recipient only)
+    /// Decrypt value (recipient only) - raw (value, blinding)
     ///
     /// Returns `Some((value, blinding))` if decryption succeeds.
+    ///
+    /// **Recommendation**: Use `decrypt_and_verify()` instead, which also
+    /// validates the commitment after decryption.
     pub fn decrypt_value(
         &self,
         kyber_sk: &crate::kyber_kem::KyberSecretKey,
     ) -> Option<(u64, [u8; 32])> {
         use pqcrypto_traits::kem::Ciphertext as KemCt;
         
-        // Extract components
-        if self.encrypted_value.len() < 24 + 16 + 1088 {
+        // Extract components: [nonce(24) | AEAD_ciphertext | Kyber_CT(1088)]
+        if self.encrypted_value.len() < 24 + 16 + KYBER768_CT_BYTES {
             return None;
         }
         
         let nonce_bytes = &self.encrypted_value[0..24];
-        let ct_end = self.encrypted_value.len() - 1088;
+        let ct_end = self.encrypted_value.len() - KYBER768_CT_BYTES;
         let ciphertext = &self.encrypted_value[24..ct_end];
         let kyber_ct_bytes = &self.encrypted_value[ct_end..];
         
@@ -178,6 +211,48 @@ impl TxOutputStark {
         blinding.copy_from_slice(&plaintext[8..40]);
         
         Some((value, blinding))
+    }
+    
+    /// Decrypt + verify commitment (RECOMMENDED API for recipients)
+    ///
+    /// This is the **safest** way to decrypt an output:
+    /// 1. Decrypt (value, blinding) using Kyber secret key
+    /// 2. Recompute commitment = SHA3(value || blinding || recipient)
+    /// 3. Check recomputed == self.value_commitment
+    ///
+    /// Returns `Some(value)` only if decryption succeeds AND commitment is valid.
+    ///
+    /// **Security**: Detects tampering with encrypted_value or commitment fields.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let my_value = output.decrypt_and_verify(&my_kyber_sk)?;
+    /// // If Some(value), we're guaranteed:
+    /// // - Decryption succeeded
+    /// // - Commitment is valid
+    /// // - No tampering occurred
+    /// ```
+    pub fn decrypt_and_verify(
+        &self,
+        kyber_sk: &crate::kyber_kem::KyberSecretKey,
+    ) -> Option<u64> {
+        // 1. Decrypt
+        let (value, blinding) = self.decrypt_value(kyber_sk)?;
+
+        // 2. Recompute commitment
+        let mut h = Sha3_256::new();
+        h.update(b"TX_OUTPUT_STARK.v1");
+        h.update(&value.to_le_bytes());
+        h.update(&blinding);
+        h.update(&self.recipient);
+        let recomputed: Hash32 = h.finalize().into();
+
+        // 3. Verify commitment
+        if recomputed == self.value_commitment {
+            Some(value) // ✅ Valid!
+        } else {
+            None // ❌ Tampered data!
+        }
     }
 }
 
@@ -266,7 +341,7 @@ mod tests {
     use crate::kyber_kem::kyber_keypair;
     
     #[test]
-    fn test_tx_output_stark() {
+    fn test_tx_output_stark_full_flow() {
         let value = 1000u64;
         let mut blinding = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut blinding);
@@ -274,18 +349,71 @@ mod tests {
         
         let (kyber_pk, kyber_sk) = kyber_keypair();
         
-        // Create output
+        // 1. Create output (sender side)
         let output = TxOutputStark::new(value, &blinding, recipient, &kyber_pk);
         
-        // Verify STARK proof
-        assert!(output.verify(), "STARK proof should be valid");
+        // 2. Verify STARK proof + commitment binding (anyone can do this)
+        assert!(output.verify(), "STARK proof + commitment should be valid");
         
-        // Decrypt
+        // 3. Decrypt raw (recipient only)
         let (decrypted_value, decrypted_blinding) = output.decrypt_value(&kyber_sk)
             .expect("Decryption should succeed");
-        
         assert_eq!(decrypted_value, value);
         assert_eq!(decrypted_blinding, blinding);
+        
+        // 4. Decrypt + verify (RECOMMENDED API)
+        let verified_value = output.decrypt_and_verify(&kyber_sk)
+            .expect("Decrypt+verify should succeed");
+        assert_eq!(verified_value, value);
+    }
+    
+    #[test]
+    fn test_commitment_binding_prevents_reuse() {
+        let value = 500u64;
+        let mut blinding = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut blinding);
+        
+        let (kyber_pk, _) = kyber_keypair();
+        
+        // Create two outputs with same value but different recipients
+        let recipient1 = [0xAAu8; 32];
+        let recipient2 = [0xBBu8; 32];
+        
+        let output1 = TxOutputStark::new(value, &blinding, recipient1, &kyber_pk);
+        let output2 = TxOutputStark::new(value, &blinding, recipient2, &kyber_pk);
+        
+        // Commitments should be different (recipient is part of commitment)
+        assert_ne!(output1.value_commitment, output2.value_commitment);
+        
+        // Try to swap proofs (attack!)
+        let mut output1_tampered = output1.clone();
+        output1_tampered.stark_proof = output2.stark_proof.clone();
+        
+        // Verification should FAIL (commitment mismatch)
+        assert!(!output1_tampered.verify(), "Swapped proof should fail verification");
+    }
+    
+    #[test]
+    fn test_tampered_commitment_detection() {
+        let value = 999u64;
+        let mut blinding = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut blinding);
+        let recipient = [0x77u8; 32];
+        
+        let (kyber_pk, kyber_sk) = kyber_keypair();
+        
+        let output = TxOutputStark::new(value, &blinding, recipient, &kyber_pk);
+        
+        // Tamper with commitment
+        let mut output_tampered = output.clone();
+        output_tampered.value_commitment[0] ^= 0xFF; // Flip bits
+        
+        // STARK proof verification should FAIL (commitment mismatch)
+        assert!(!output_tampered.verify(), "Tampered commitment should fail STARK verification");
+        
+        // Decrypt + verify should also FAIL
+        assert!(output_tampered.decrypt_and_verify(&kyber_sk).is_none(),
+                "Tampered commitment should fail decrypt_and_verify");
     }
     
     #[test]
