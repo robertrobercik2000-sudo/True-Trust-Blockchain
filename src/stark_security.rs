@@ -70,12 +70,20 @@ impl SecurityParams {
     }
     
     /// Create BN254 configuration (maximum security)
+    ///
+    /// **NOTE:** To achieve 128-bit classical security, BN254 requires
+    /// stronger FRI parameters than smaller fields:
+    /// - 160 FRI queries (2× Goldilocks)
+    /// - 32× blowup factor (2× Goldilocks)
+    /// - This gives ~142-bit soundness, limited to 128-bit by hash
+    ///
+    /// **Trade-off:** ~4× slower proofs than Goldilocks, but maximum security!
     pub fn bn254() -> Self {
         Self {
             field_bits: 254,
             field_name: "BN254".to_string(),
-            fri_queries: 80,
-            fri_blowup: 16,
+            fri_queries: 160,      // 2× Goldilocks for 128-bit security
+            fri_blowup: 32,        // 2× Goldilocks for 128-bit security
             fri_fold_factor: 4,
             constraint_degree: 2,
             domain_size: 128,
@@ -149,21 +157,28 @@ impl SecurityParams {
     
     /// Compute classical security level (bits)
     ///
-    /// Takes **minimum** of:
-    /// 1. Field collision resistance (field_bits / 2)
-    /// 2. FRI soundness (from queries)
-    /// 3. Hash collision resistance (SHA-3: 128-bit)
+    /// Dla STARK-ów realne bezpieczeństwo pochodzi z:
+    /// 1. FRI soundness (liczone z parametrów),
+    /// 2. Hash collision resistance (SHA-3-256 = 128 bitów),
+    /// a następnie jest **ograniczone przez rozmiar pola**.
     ///
-    /// **Security = min(security₁, security₂, security₃)**
-    /// (Chain is as strong as weakest link)
+    /// Czyli:
+    ///   stark_security = min(soundness_bits, hash_bits)
+    ///   classical_security_bits = min(stark_security, field_bits)
+    ///
+    /// Dzięki temu:
+    /// - BabyBear (31-bit field) nie udaje 64-bitowego bezpieczeństwa,
+    /// - Goldilocks (64-bit field) wyjdzie na poziomie 64-bit classical,
+    /// - BN254 może osiągnąć pełne 128-bit classical.
     pub fn classical_security_bits(&self) -> usize {
-        let field_security = self.field_collision_bits();
         let soundness_security = self.soundness_bits() as usize;
         let hash_security = self.hash_collision_bits();
         
-        field_security
-            .min(soundness_security)
-            .min(hash_security)
+        // STARK security from proof system (FRI + Merkle)
+        let stark_security = soundness_security.min(hash_security);
+        
+        // Twardy limit: nie deklarujemy więcej niż field_bits
+        stark_security.min(self.field_bits)
     }
     
     /// Compute post-quantum security level (bits)
