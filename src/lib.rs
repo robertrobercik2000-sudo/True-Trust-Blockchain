@@ -56,9 +56,7 @@ pub mod pow_randomx_monero; // OFFICIAL RandomX FFI (Monero C library) - PRODUCT
 
 pub mod rtt_trust; // RTT (Recursive Trust Tree) - f64 version
 pub mod rtt_trust_pro; // RTT PRO (Q32.32 deterministic) - PRODUCTION!
-// NOTE: consensus_pro requires RandomX library installed
-// Uncomment after installing RandomX (see RANDOMX_INSTALL.md)
-// pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio
+pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio + STARK
 // STARK implementations
 pub mod stark_full; // BabyBear (31-bit, educational/testing only)
 pub mod stark_goldilocks; // Goldilocks (64-bit, production target) - RECOMMENDED!
@@ -68,6 +66,9 @@ pub mod stark_security; // Security analysis & parameter validation
 pub mod tx_stark; // Post-Quantum transactions (STARK range proofs, replaces Bulletproofs)
 pub mod p2p_secure; // PQ-secure P2P transport (Falcon512 + Kyber768 + XChaCha20-Poly1305)
 pub mod node_v2_p2p; // Blockchain node with PQ P2P networking
+
+// Post-Quantum module (Winterfell STARK + PQ TX)
+pub mod pq;
 
 // Re-export main types for convenience
 pub use pot::{

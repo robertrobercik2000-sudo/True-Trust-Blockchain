@@ -62,8 +62,7 @@ ark-crypto-primitives = { version = "0.4", default-features = false, features = 
 ark-serialize = { version = "0.4", default-features = false, optional = true }
 
 # Winterfell STARK (production-grade, Facebook/Meta, Polygon Miden VM)
-# NOTE: Commented out due to API incompatibility (0.9 vs 0.13+)
-# winterfell = { version = "0.9", default-features = false, features = ["std"] }
+winterfell = { version = "0.9", default-features = false, features = ["std"] }
 
 [features]
 # STARK field selection (see QUANTUM_SECURITY_DECISION.md for details)

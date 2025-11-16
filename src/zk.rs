@@ -1,6 +1,12 @@
 #![forbid(unsafe_code)]
 
-//! RISC0 zkVM integration for private transactions and aggregation
+//! Zero-Knowledge Proofs Module
+//!
+//! Contains:
+//! - RISC0 zkVM integration (simplified for TRUE_TRUST)
+//! - Winterfell STARK range proofs (production-grade)
+
+pub mod range_stark_winterfell;
 
 use serde::{Deserialize, Serialize};
 use crate::core::Hash32;

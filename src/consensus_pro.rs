@@ -6,12 +6,17 @@
 //! w jedną spójną fasadę dla pot_node.rs i node.rs
 
 use crate::rtt_trust_pro::{TrustGraph, RTTConfig, TrustScore, Q, q_from_f64, q_to_f64};
-use crate::pot::{NodeId, EpochSnapshot};
+use crate::pot::NodeId;
 use std::collections::HashMap;
 
 // RandomXHasher from FFI (requires librandomx installed)
 // If build fails, install RandomX: see RANDOMX_INSTALL.md
+#[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
 use crate::pow_randomx_monero::RandomXHasher;
+
+// === STARK (Winterfell) PQ TX integration ===
+use crate::pq::tx_stark::TransactionStark;
+use crate::core::Hash32;
 
 /// Consensus PRO - główna fasada
 pub struct ConsensusPro {
@@ -19,6 +24,7 @@ pub struct ConsensusPro {
     pub trust_graph: TrustGraph,
     
     /// RandomX hasher (Monero FFI)
+    #[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
     randomx_hasher: Option<RandomXHasher>,
     
     /// Current epoch
@@ -30,6 +36,7 @@ impl ConsensusPro {
     pub fn new() -> Self {
         Self {
             trust_graph: TrustGraph::new(RTTConfig::default()),
+            #[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
             randomx_hasher: None,
             current_epoch: 0,
         }
@@ -39,26 +46,46 @@ impl ConsensusPro {
     pub fn with_config(config: RTTConfig) -> Self {
         Self {
             trust_graph: TrustGraph::new(config),
+            #[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
             randomx_hasher: None,
             current_epoch: 0,
         }
     }
     
     /// Inicjalizuj RandomX dla epoki
+    #[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
     pub fn init_randomx(&mut self, epoch: u64) {
         self.current_epoch = epoch;
         self.randomx_hasher = Some(RandomXHasher::new(epoch));
     }
     
+    #[cfg(not(all(feature = "randomx-ffi", target_pointer_width = "64")))]
+    pub fn init_randomx(&mut self, epoch: u64) {
+        self.current_epoch = epoch;
+    }
+    
     /// RandomX hash (używa Monero FFI)
     pub fn randomx_hash(&self, input: &[u8]) -> [u8; 32] {
-        if let Some(ref hasher) = self.randomx_hasher {
+        #[cfg(all(feature = "randomx-ffi", target_pointer_width = "64"))]
+        {
+            if let Some(ref hasher) = self.randomx_hasher {
+                return hasher.hash(input);
+            }
+            
+            // Fallback: utwórz hasher dla bieżącej epoki
+            let hasher = RandomXHasher::new(self.current_epoch);
             return hasher.hash(input);
         }
         
-        // Fallback: utwórz hasher dla bieżącej epoki
-        let hasher = RandomXHasher::new(self.current_epoch);
-        hasher.hash(input)
+        #[cfg(not(all(feature = "randomx-ffi", target_pointer_width = "64")))]
+        {
+            // Fallback: SHA3-256 (not RandomX)
+            use sha3::{Digest, Sha3_256};
+            let mut h = Sha3_256::new();
+            h.update(b"RANDOMX_FALLBACK");
+            h.update(input);
+            h.finalize().into()
+        }
     }
     
     /// Update trust dla walidatora (główny algorytm RTT)
@@ -126,6 +153,15 @@ impl ConsensusPro {
     pub fn export_graph_dot(&self) -> String {
         self.trust_graph.export_dot()
     }
+
+    // === STARK (Winterfell) batch verify adapter ===
+    /// Weryfikuje wszystkie **range STARK** w outpucie każdej transakcji.
+    /// Nie dotyka podpisów (Falcon) ani reguł stanu.
+    /// Zwraca (ile_poprawnych, ile_łącznie).
+    #[inline]
+    pub fn verify_block_stark(&self, txs: &[TransactionStark]) -> (u32, u32) {
+        verify_stark_outputs_in_block(txs)
+    }
 }
 
 impl Default for ConsensusPro {
@@ -153,6 +189,35 @@ pub fn compute_final_weight_pro(
     let w_stake = stake_f.powf(power_stake);
     
     w_trust * w_randomx * w_stake
+}
+
+// =================== STARK (Winterfell) helpers ===================
+
+/// Weryfikuje dowody STARK we wszystkich outputach transakcji.
+/// Zwraca (valid_outputs, total_outputs).
+#[inline]
+pub fn verify_stark_outputs_in_block(transactions: &[TransactionStark]) -> (u32, u32) {
+    let mut valid = 0u32;
+    let mut total = 0u32;
+    for tx in transactions {
+        let (v, t) = tx.verify_all_proofs();
+        valid += v;
+        total += t;
+    }
+    (valid, total)
+}
+
+/// Zwraca ID transakcji, w których **jakikolwiek** output ma zły STARK.
+#[inline]
+pub fn find_txs_with_invalid_stark(transactions: &[TransactionStark]) -> Vec<Hash32> {
+    let mut bad = Vec::new();
+    for tx in transactions {
+        let (v, t) = tx.verify_all_proofs();
+        if v != t {
+            bad.push(tx.id());
+        }
+    }
+    bad
 }
 
 #[cfg(test)]
@@ -204,7 +269,7 @@ mod tests {
         let input = b"test block header";
         let hash = consensus.randomx_hash(input);
         
-        // Deterministyczny (używa Pure Rust fallback jeśli FFI niedostępne)
+        // Deterministyczny (używa SHA3 fallback jeśli FFI niedostępne)
         let hash2 = consensus.randomx_hash(input);
         assert_eq!(hash, hash2);
     }
@@ -235,5 +300,24 @@ mod tests {
         
         // 0.9^2 × (1+0.8)^1.5 × 0.1^1 ≈ 0.81 × 2.15 × 0.1 ≈ 0.174
         assert!(weight > 0.15 && weight < 0.20, "Weight: {}", weight);
+    }
+
+    #[test]
+    fn test_stark_block_verify_adapter() {
+        use rand::RngCore;
+        use crate::pq::tx_stark::{TxOutputStark, TransactionStark};
+        use crate::kyber_kem::kyber_keypair;
+
+        let (kyber_pk, _kyber_sk) = kyber_keypair();
+        let mut b1 = [0u8; 32]; let mut b2 = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut b1);
+        rand::thread_rng().fill_bytes(&mut b2);
+
+        let o1 = TxOutputStark::new(123, &b1, [1u8;32], &kyber_pk);
+        let o2 = TxOutputStark::new(456, &b2, [2u8;32], &kyber_pk);
+
+        let tx = TransactionStark { inputs: vec![], outputs: vec![o1,o2], fee: 0, nonce: 0, timestamp: 0 };
+        let (v,t) = super::verify_stark_outputs_in_block(&[tx]);
+        assert_eq!(v,t);
     }
 }
