@@ -62,8 +62,12 @@ ark-crypto-primitives = { version = "0.4", default-features = false, features = 
 ark-serialize = { version = "0.4", default-features = false, optional = true }
 
 [features]
-default = []
-# Enable ZK proof support (Groth16/BN254)
+# STARK field selection
+default = ["babybear"]
+babybear = []            # Demo-grade: 31-bit BabyBear field, fast (testnet)
+goldilocks = []          # Production-grade: 64-bit Goldilocks field, 2× slower (mainnet)
+
+# ZK proof support (Groth16/BN254)
 zk-proofs = [
     "ark-std/std",
     "ark-ff/std", 

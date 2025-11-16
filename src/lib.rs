@@ -59,7 +59,11 @@ pub mod rtt_trust_pro; // RTT PRO (Q32.32 deterministic) - PRODUCTION!
 // NOTE: consensus_pro requires RandomX library installed
 // Uncomment after installing RandomX (see RANDOMX_INSTALL.md)
 // pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio
-pub mod stark_full; // PEŁNY STARK - Production ZK proofs (FRI, AIR, field arithmetic)
+// STARK implementations (field-dependent)
+pub mod stark_full; // BabyBear (31-bit, demo-grade)
+pub mod stark_goldilocks; // Goldilocks (64-bit, production-grade) - NEW!
+pub mod stark_security; // Security analysis & parameter validation - NEW!
+
 pub mod tx_stark; // Post-Quantum transactions (STARK range proofs, replaces Bulletproofs)
 pub mod p2p_secure; // PQ-secure P2P transport (Falcon512 + Kyber768 + XChaCha20-Poly1305)
 pub mod node_v2_p2p; // Blockchain node with PQ P2P networking
