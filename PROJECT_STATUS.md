@@ -37,11 +37,12 @@ This project is:
    - Working, but not optimized
 
 2. **STARK Zero-Knowledge Proofs**
-   - BabyBear field (31-bit, educational)
+   - Goldilocks field (64-bit, production-grade)
    - FRI protocol (basic implementation)
-   - ⚠️ Unoptimized (1-2s prove time)
-   - ⚠️ Large proofs (100-400 KB)
+   - ⚠️ Unoptimized (2-4s prove time)
+   - ⚠️ Large proofs (100-200 KB)
    - ⚠️ Not hardened
+   - Note: BabyBear (31-bit) also available for testing
 
 3. **Proof-of-Trust Consensus**
    - Weight formula: (2/3)T + (1/3)S
@@ -73,14 +74,16 @@ This project is:
 
 ### ❌ Known Limitations:
 
-1. **STARK Implementation**
+1. **STARK Implementation (Goldilocks)**
    ```
    Issues:
    - Unoptimized polynomial operations (slow)
-   - Large proof sizes (100-400 KB vs target 50 KB)
+   - Large proof sizes (100-200 KB vs target 50-100 KB)
    - Missing: proper constraint system
    - Missing: batched verification
    - Missing: recursive proofs
+   - Missing: FFT optimizations (Cooley-Tukey)
+   - Missing: parallel proving
    ```
 
 2. **Consensus**
@@ -103,10 +106,12 @@ This project is:
 
 4. **Performance**
    ```
-   Current (unoptimized):
-   - Block time: 10-15s (target: 5s)
-   - TPS: 5-10 (target: 20-50)
-   - STARK prove: 1-2s (target: 200-500ms)
+   Current (unoptimized Goldilocks):
+   - Block time: 15-20s (target: 5-10s)
+   - TPS: 3-7 (target: 20-50)
+   - STARK prove: 2-4s (target: 500ms-1s)
+   - STARK verify: 300-700ms (target: 100-200ms)
+   - Proof size: 100-200 KB (target: 50-100 KB)
    - Memory usage: not profiled
    ```
 
@@ -214,9 +219,11 @@ Verified:    ❌ NO (formal methods)
 ### Technical Requirements:
 
 1. **Performance Optimization (3-6 months)**
-   - STARK: 1-2s → 200-500ms prove time
-   - Proof size: 100-400 KB → 50-100 KB
-   - TPS: 5-10 → 20-50
+   - STARK: 2-4s → 500ms-1s prove time (Goldilocks)
+   - Proof size: 100-200 KB → 50-100 KB
+   - TPS: 3-7 → 20-50
+   - Implement FFT optimizations (Cooley-Tukey)
+   - Parallel proving (rayon)
    - Memory profiling and optimization
 
 2. **Security Hardening (3-6 months)**

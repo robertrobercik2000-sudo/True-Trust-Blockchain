@@ -60,9 +60,9 @@ pub mod rtt_trust_pro; // RTT PRO (Q32.32 deterministic) - PRODUCTION!
 // Uncomment after installing RandomX (see RANDOMX_INSTALL.md)
 // pub mod consensus_pro; // Unified facade: RTT PRO + RandomX + Golden Trio
 // STARK implementations (field-dependent)
-pub mod stark_full; // BabyBear (31-bit, demo-grade)
-pub mod stark_goldilocks; // Goldilocks (64-bit, production-grade) - NEW!
-pub mod stark_security; // Security analysis & parameter validation - NEW!
+pub mod stark_full; // BabyBear (31-bit, educational/testing only)
+pub mod stark_goldilocks; // Goldilocks (64-bit, production target) - DEFAULT!
+pub mod stark_security; // Security analysis & parameter validation
 
 pub mod tx_stark; // Post-Quantum transactions (STARK range proofs, replaces Bulletproofs)
 pub mod p2p_secure; // PQ-secure P2P transport (Falcon512 + Kyber768 + XChaCha20-Poly1305)
