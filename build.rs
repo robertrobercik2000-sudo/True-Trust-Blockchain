@@ -1,8 +1,22 @@
-// build.rs – bindowanie RandomX (PRO)
+// build.rs – bindowanie RandomX (PRO) - CONDITIONAL
+//
+// RandomX jest używany tylko przez node (consensus), NIE przez wallet CLI!
+// Link tylko jeśli feature "randomx-ffi" jest enabled.
 
 use std::env;
 
 fn main() {
+    // Check if randomx-ffi feature is enabled
+    // Cargo sets CARGO_FEATURE_<name> for each enabled feature
+    let randomx_enabled = env::var("CARGO_FEATURE_RANDOMX_FFI").is_ok();
+    
+    if !randomx_enabled {
+        println!("cargo:warning=RandomX FFI disabled (not needed for wallet CLI)");
+        return;
+    }
+    
+    println!("cargo:warning=RandomX FFI enabled (for consensus node)");
+    
     // Jeśli zmienisz te zmienne środowiskowe – przebuduj projekt
     println!("cargo:rerun-if-env-changed=RANDOMX_LIB_DIR");
     println!("cargo:rerun-if-env-changed=RANDOMX_STATIC");
