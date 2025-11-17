@@ -94,34 +94,44 @@ pub fn falcon_keypair() -> (FalconPublicKey, FalconSecretKey) {
 /// - Seed must have ≥256 bits entropy
 /// - Domain prevents cross-context attacks
 /// - Same (seed, domain) → same keypair (deterministic)
+///
+/// # Implementation
+/// - **With `seeded_falcon` feature**: TRUE deterministic keygen via PQClean FFI + KMAC-DRBG
+/// - **Without feature**: Falls back to random keygen (for testing only!)
 pub fn falcon_keypair_from_seed(
     seed: &[u8; 32],
     domain: &[u8],
 ) -> (FalconPublicKey, FalconSecretKey) {
-    use sha3::{Digest, Sha3_256};
+    #[cfg(feature = "seeded_falcon")]
+    {
+        // ✅ TRUE DETERMINISTIC via falcon_seeded FFI
+        use crate::crypto::seeded::falcon_keypair_deterministic;
+        
+        match falcon_keypair_deterministic(*seed, domain) {
+            Ok((pk_bytes, sk_bytes)) => {
+                // Convert raw bytes to pqcrypto types
+                let pk = FalconPublicKey::from_bytes(&pk_bytes)
+                    .expect("Valid Falcon PK from deterministic keygen");
+                let sk = FalconSecretKey::from_bytes(&sk_bytes)
+                    .expect("Valid Falcon SK from deterministic keygen");
+                (pk, sk)
+            }
+            Err(e) => {
+                panic!("Deterministic Falcon keygen failed: {}", e);
+            }
+        }
+    }
     
-    // Derive deterministic seed from input + domain (for domain separation)
-    let mut hasher = Sha3_256::new();
-    hasher.update(b"FALCON512_KEYGEN_V1");
-    hasher.update(seed);
-    hasher.update(domain);
-    let _rng_seed_bytes: [u8; 32] = hasher.finalize().into();
-    
-    // LIMITATION: pqcrypto_falcon::keypair() always uses thread_rng() internally
-    // Cannot override RNG without low-level FFI access
-    //
-    // For TRUE deterministic keygen, need one of:
-    // 1. falcon_seeded FFI (from reference branch - requires PQClean setup)
-    // 2. Direct FFI to Falcon C library with custom RNG
-    // 3. Pure Rust Falcon implementation with seeded RNG
-    //
-    // For now: Return standard random keypair + TODO warning
-    // In production consensus, node should:
-    // - Generate keypair ONCE at initialization
-    // - Store in persistent state (encrypted)
-    // - Never regenerate (to maintain stable identity)
-    
-    falcon512::keypair()
+    #[cfg(not(feature = "seeded_falcon"))]
+    {
+        // ⚠️ FALLBACK: Random keygen (NOT deterministic!)
+        // This should NEVER be used in production consensus!
+        eprintln!("⚠️  WARNING: Using RANDOM Falcon keygen (seeded_falcon feature disabled)");
+        eprintln!("⚠️  For production consensus, enable seeded_falcon feature!");
+        eprintln!("⚠️  Seed: {:?}, Domain: {:?}", seed, domain);
+        
+        falcon512::keypair()
+    }
 }
 
 /// Import public key from bytes

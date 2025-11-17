@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["deserialize_pk","deserialize_proof","deserialize_vk","prove_eligibility","serialize_pk","serialize_proof","serialize_vk","setup_keys","verify_eligibility"],"struct":["EligibilityCircuit","EligibilityPublicInputs","EligibilityWitness"]};

@@ -10,6 +10,7 @@ description = "TRUE_TRUST wallet CLI v5 (PQC: Falcon512 + ML-KEM/Kyber768, AEAD:
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 rand = { version = "0.8", features = ["std"] }
+rand_core = "0.6"  # For KMAC-DRBG
 rpassword = "7.3"
 serde = { version = "1.0", features = ["derive"] }
 zeroize = { version = "1.7", features = ["zeroize_derive"] }
@@ -62,15 +63,19 @@ ark-crypto-primitives = { version = "0.4", default-features = false, features = 
 ark-serialize = { version = "0.4", default-features = false, optional = true }
 
 # Winterfell STARK (production-grade, Facebook/Meta, Polygon Miden VM)
-# NOTE: Commented out - requires Rust 1.87+, we have 1.82
-# Will use our Goldilocks STARK instead (working, unoptimized)
-# winterfell = { version = "0.13", default-features = false, features = ["std"] }
+# ✅ NOW AVAILABLE: Rust 1.91.1 >= 1.87 required
+winterfell = { version = "0.13", default-features = false, features = ["std"] }
+
+# falcon_seeded: Deterministic Falcon-512 (FFI to PQClean)
+falcon_seeded = { path = "falcon_seeded", optional = true }
 
 [features]
 # STARK field selection (see QUANTUM_SECURITY_DECISION.md for details)
-default = ["goldilocks", "rand_chacha"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
+default = ["goldilocks", "rand_chacha", "seeded_falcon"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
 babybear = []             # Demo-grade: 31-bit BabyBear field, fast (testnet only)
 goldilocks = []           # Production-grade: 64-bit Goldilocks field, 2× slower (mainnet)
+seeded_falcon = ["falcon_seeded"]  # Deterministic Falcon keygen/signing (requires PQClean)
+winterfell_v2 = []        # Enable Winterfell 0.13 range proofs (production-grade)
 
 # ZK proof support (Groth16/BN254)
 zk-proofs = [

@@ -45,6 +45,7 @@ pub mod cpu_proof; // CPU-only micro PoW and proof metrics
 pub mod cpu_mining; // Hybrid PoT+PoS+MicroPoW optimized for old CPUs
 pub mod falcon_sigs; // Falcon-512 Post-Quantum Signatures
 pub mod kyber_kem; // Kyber-768 Post-Quantum KEM
+pub mod crypto; // KMAC-DRBG + Seeded Falcon (deterministic keygen)
 pub mod pozs_lite;
 pub mod zk_trust; // Privacy-preserving trust proofs
 pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS)
