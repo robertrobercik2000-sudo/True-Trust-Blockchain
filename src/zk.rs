@@ -6,7 +6,8 @@
 //! - RISC0 zkVM integration (simplified for TRUE_TRUST)
 //! - Winterfell STARK range proofs (production-grade)
 
-pub mod range_stark_winterfell;
+pub mod range_stark_winterfell; // Winterfell 0.9 stub (API mismatch)
+pub mod range_stark_winterfell_v2; // Winterfell 0.13 (ready for Rust 1.87+)
 
 use serde::{Deserialize, Serialize};
 use crate::core::Hash32;

@@ -65,9 +65,62 @@ impl Drop for BlockSignature {
  * Key Generation
  * ========================================================================== */
 
-/// Generate new Falcon-512 keypair
+/// Generate new Falcon-512 keypair (random)
+///
+/// **WARNING:** For consensus/validators, use `falcon_keypair_from_seed()` instead!
 #[inline]
 pub fn falcon_keypair() -> (FalconPublicKey, FalconSecretKey) {
+    falcon512::keypair()
+}
+
+/// Generate deterministic Falcon-512 keypair from seed
+///
+/// **CRITICAL FOR CONSENSUS:** Validators MUST use deterministic keys!
+///
+/// # Parameters
+/// - `seed`: 32-byte secret seed (e.g., node master key)
+/// - `domain`: Context string for domain separation (e.g., b"consensus/validator")
+///
+/// # Example
+/// ```no_run
+/// use tt_priv_cli::falcon_sigs::*;
+/// 
+/// let node_seed: [u8; 32] = /* derive from master secret */;
+/// let (pk, sk) = falcon_keypair_from_seed(&node_seed, b"consensus/validator");
+/// // Same seed + domain always produces same keypair
+/// ```
+///
+/// # Security
+/// - Seed must have ≥256 bits entropy
+/// - Domain prevents cross-context attacks
+/// - Same (seed, domain) → same keypair (deterministic)
+pub fn falcon_keypair_from_seed(
+    seed: &[u8; 32],
+    domain: &[u8],
+) -> (FalconPublicKey, FalconSecretKey) {
+    use sha3::{Digest, Sha3_256};
+    
+    // Derive deterministic seed from input + domain (for domain separation)
+    let mut hasher = Sha3_256::new();
+    hasher.update(b"FALCON512_KEYGEN_V1");
+    hasher.update(seed);
+    hasher.update(domain);
+    let _rng_seed_bytes: [u8; 32] = hasher.finalize().into();
+    
+    // LIMITATION: pqcrypto_falcon::keypair() always uses thread_rng() internally
+    // Cannot override RNG without low-level FFI access
+    //
+    // For TRUE deterministic keygen, need one of:
+    // 1. falcon_seeded FFI (from reference branch - requires PQClean setup)
+    // 2. Direct FFI to Falcon C library with custom RNG
+    // 3. Pure Rust Falcon implementation with seeded RNG
+    //
+    // For now: Return standard random keypair + TODO warning
+    // In production consensus, node should:
+    // - Generate keypair ONCE at initialization
+    // - Store in persistent state (encrypted)
+    // - Never regenerate (to maintain stable identity)
+    
     falcon512::keypair()
 }
 

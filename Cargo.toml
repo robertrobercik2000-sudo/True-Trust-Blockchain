@@ -55,7 +55,7 @@ ark-ec = { version = "0.4", default-features = false, optional = true }
 ark-bn254 = { version = "0.4", default-features = false, features = ["curve"], optional = true }
 ark-groth16 = { version = "0.4", default-features = false, optional = true }
 ark-snark = { version = "0.4", default-features = false, optional = true }
-rand_chacha = { version = "0.3", optional = true }
+rand_chacha = { version = "0.3", optional = true }  # For Groth16 and deterministic Falcon keygen
 ark-relations = { version = "0.4", default-features = false, optional = true }
 ark-r1cs-std = { version = "0.4", default-features = false, optional = true }
 ark-crypto-primitives = { version = "0.4", default-features = false, features = ["r1cs"], optional = true }
@@ -68,7 +68,7 @@ ark-serialize = { version = "0.4", default-features = false, optional = true }
 
 [features]
 # STARK field selection (see QUANTUM_SECURITY_DECISION.md for details)
-default = ["goldilocks"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
+default = ["goldilocks", "rand_chacha"]  # PRODUCTION: 64-bit classical, 32-bit quantum (safe until ~2040)
 babybear = []             # Demo-grade: 31-bit BabyBear field, fast (testnet only)
 goldilocks = []           # Production-grade: 64-bit Goldilocks field, 2× slower (mainnet)
 
