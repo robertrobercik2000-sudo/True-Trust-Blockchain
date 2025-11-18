@@ -1,5 +1,28 @@
 //! Deterministic Falcon Operations via KMAC-DRBG
 //!
+//! Ten moduł robi dwie rzeczy:
+//! 1. Spina `KmacDrbg` z `falcon_seeded` (PQClean Falcon-512 z seedowanym RNG).
+//! 2. Dostarcza **bezpieczne API wysokiego poziomu** z wrapperami na klucze
+//!    i podpisy, tak żeby:
+//!      - sekretne klucze były zeroizowane,
+//!      - domain separation przy podpisach było sensowne,
+//!      - użytkownik jak najmniej miał szans „strzelić sobie w stopę".
+//!
+//! # Warstwy API
+//!
+//! - **Low-level (raw)**:
+//!   - `falcon_keypair_deterministic` – → ([u8; PK_LEN], [u8; SK_LEN])
+//!   - `falcon_sign_deterministic` – wymaga ręcznego `coins_seed` + `personalization`
+//!   - to jest „dla dorosłych" – zostawiamy do specjalnych zastosowań
+//!
+//! - **High-level (recommended)**:
+//!   - `FalconPublicKey`, `FalconSecretKey`, `FalconSignature` – typy opakowujące
+//!   - `falcon_keypair_from_seed` – zwraca wrappery, SK zeroizowany na Drop
+//!   - `falcon_sign_msg_deterministic` – *sam* robi PRF z SK, binduje do msg & context,
+//!     generuje coins i podpis. To jest **zalecana ścieżka** dla nodów / walleta.
+//!
+//! Wszystko działa tylko gdy włączony jest feature `seeded_falcon`
+//!
 //! This module provides deterministic (reproducible) Falcon-512 key generation
 //! and signing by integrating `KmacDrbg` with the `falcon_seeded` FFI crate.
 //!

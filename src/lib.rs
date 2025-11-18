@@ -46,6 +46,11 @@ pub mod cpu_mining; // Hybrid PoT+PoS+MicroPoW optimized for old CPUs
 pub mod falcon_sigs; // Falcon-512 Post-Quantum Signatures
 pub mod kyber_kem; // Kyber-768 Post-Quantum KEM
 pub mod crypto; // KMAC-DRBG + Seeded Falcon (deterministic keygen)
+pub mod node_id; // NodeId generation from Falcon PK
+pub mod rtt_pro; // RTT PRO (Q32.32, deterministic trust)
+pub mod consensus_weights; // Deterministic validator weights
+pub mod consensus_pro_v2; // Consensus PRO v2 (user's production version)
+pub mod p2p_channel; // PQ-secure P2P channel (after handshake)
 pub mod pozs_lite;
 pub mod zk_trust; // Privacy-preserving trust proofs
 pub mod golden_trio; // Golden Trio consensus (PoT + RandomX + PoS)
