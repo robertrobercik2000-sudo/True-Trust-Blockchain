@@ -1,23 +1,23 @@
 #![forbid(unsafe_code)]
 
-//! RTT (Recursive Trust Tree) - WERSJA PRO (deterministyczna, pod konsensus)
+//! RTT (Recursive Trust Tree) - PRO VERSION (deterministic, consensus-grade)
 //!
-//! Zmiany względem wersji „research":
-//! - Zero `f64` w rdzeniu algorytmu (brak `exp`, `sigmoid`).
-//! - Wszystkie wagi i wyniki w Q32.32 (`u64`): deterministyczne na wszystkich CPU.
-//! - Historia jako wygładzona średnia (EWMA), bez gigantycznej mapy (validator, epoch).
-//! - Vouching ograniczony do [0,1] – nie „wybucha" przy wielu krawędziach.
-//! - Prosta, gładka krzywa S: S(x) = 3x² − 2x³ zamiast ciągłego sigmoidu.
+//! Changes from "research" version:
+//! - Zero `f64` in core algorithm (no `exp`, `sigmoid`).
+//! - All weights and results in Q32.32 (`u64`): deterministic on all CPUs.
+//! - History as smoothed average (EWMA), no huge (validator, epoch) map.
+//! - Vouching capped to [0,1] – doesn't "explode" with many edges.
+//! - Simple, smooth S-curve: S(x) = 3x² − 2x³ instead of continuous sigmoid.
 //!
 //! Model:
-//!   H(v) – historyczna jakość (EWMA z Q(t))
-//!   W(v) – jakość z ostatniej epoki („Golden Trio")
-//!   V(v) – vouching (web of trust, znormalizowany do [0,1])
+//!   H(v) – historical quality (EWMA from Q(t))
+//!   W(v) – quality from last epoch ("Golden Trio")
+//!   V(v) – vouching (web of trust, normalized to [0,1])
 //!
 //!   Z_lin(v) = β₁·H(v) + β₂·V(v) + β₃·W(v) ∈ [0,1]
 //!   T(v)     = S(Z_lin(v)) = 3z² − 2z³ ∈ [0,1]
 //!
-//! Wszystko w Q32.32, więc nadaje się do użycia w konsensusie (fork-choice, wybór validatorów).
+//! Everything in Q32.32, so suitable for consensus (fork-choice, validator selection).
 
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ pub type QualityScore = Q;
 /// Epoch number
 pub type Epoch = u64;
 
-/// Konwersja z f64 → Q (TYLKO pomocniczo, np. do defaultów / testów)
+/// Convert f64 → Q (ONLY for helpers, e.g. defaults / tests)
 #[inline]
 pub fn q_from_f64(x: f64) -> Q {
     if x <= 0.0 {
@@ -49,13 +49,13 @@ pub fn q_from_f64(x: f64) -> Q {
     (x * (ONE_Q as f64)) as u64
 }
 
-/// Konwersja z Q → f64 (np. do debug / wizualizacji)
+/// Convert Q → f64 (e.g. for debug / visualization)
 #[inline]
 pub fn q_to_f64(x: Q) -> f64 {
     (x as f64) / (ONE_Q as f64)
 }
 
-/// Mnożenie Q32.32 · Q32.32 → Q32.32 (z obcięciem)
+/// Multiply Q32.32 · Q32.32 → Q32.32 (with truncation)
 #[inline]
 pub fn qmul(a: Q, b: Q) -> Q {
     let z = (a as u128) * (b as u128);
@@ -69,23 +69,23 @@ pub fn qclamp01(x: Q) -> Q {
     x.min(ONE_Q)
 }
 
-/// RTT Configuration (wersja PRO)
+/// RTT Configuration (PRO version)
 #[derive(Clone, Debug)]
 pub struct RTTConfig {
-    /// Waga historii (β₁) ∈ [0,1]
+    /// History weight (β₁) ∈ [0,1]
     pub beta_history: Q,
 
-    /// Waga vouchingu (β₂) ∈ [0,1]
+    /// Vouching weight (β₂) ∈ [0,1]
     pub beta_vouching: Q,
 
-    /// Waga bieżącej pracy (β₃) ∈ [0,1]
+    /// Current work weight (β₃) ∈ [0,1]
     pub beta_work: Q,
 
-    /// Współczynnik pamięci historii (α) ∈ [0,1]
+    /// History memory coefficient (α) ∈ [0,1]
     /// H_new = α·H_old + (1-α)·Q_t
     pub alpha_history: Q,
 
-    /// Minimalny trust do vouchowania
+    /// Minimum trust to vouch
     pub min_trust_to_vouch: Q,
 }
 
@@ -97,17 +97,17 @@ impl Default for RTTConfig {
             beta_vouching: q_from_f64(0.3),
             beta_work:     q_from_f64(0.3),
 
-            // α ≈ 0.99 → historia zapomina bardzo wolno
+            // α ≈ 0.99 → history forgets very slowly
             alpha_history: q_from_f64(0.99),
 
-            // min trust do vouchowania: 0.5
+            // min trust to vouch: 0.5
             min_trust_to_vouch: q_from_f64(0.5),
         }
     }
 }
 
 impl RTTConfig {
-    /// Weryfikacja: β₁ + β₂ + β₃ ≈ 1.0 (±1%)
+    /// Verify: β₁ + β₂ + β₃ ≈ 1.0 (±1%)
     pub fn verify(&self) -> bool {
         let sum = self.beta_history
             .saturating_add(self.beta_vouching)
@@ -133,15 +133,15 @@ pub struct Vouch {
     pub created_at: Epoch,
 }
 
-/// Trust graph (wersja PRO, deterministyczna)
+/// Trust graph (PRO version, deterministic)
 pub struct TrustGraph {
-    /// Aktualne trust score T(v) ∈ [0, ONE_Q]
+    /// Current trust score T(v) ∈ [0, ONE_Q]
     trust: HashMap<NodeId, TrustScore>,
 
-    /// Wygładzona historia H(v) ∈ [0, ONE_Q] (EWMA z jakości)
+    /// Smoothed history H(v) ∈ [0, ONE_Q] (EWMA from quality)
     history_h: HashMap<NodeId, Q>,
 
-    /// Bieżąca jakość (ostatnia epoka) W(v) ∈ [0, ONE_Q]
+    /// Current quality (last epoch) W(v) ∈ [0, ONE_Q]
     last_quality: HashMap<NodeId, QualityScore>,
 
     /// Vouching edges
@@ -170,7 +170,7 @@ impl TrustGraph {
         *self.trust.get(validator).unwrap_or(&0)
     }
 
-    /// Trust jako f64 (TYLKO do debug / UI)
+    /// Trust as f64 (ONLY for debug / UI)
     pub fn get_trust_f64(&self, validator: &NodeId) -> f64 {
         q_to_f64(self.get_trust(validator))
     }
@@ -180,7 +180,7 @@ impl TrustGraph {
         self.trust.insert(validator, qclamp01(trust));
     }
 
-    /// Zarejestrowanie quality score dla danej epoki
+    /// Record quality score for given epoch
     ///
     /// quality ∈ [0, ONE_Q]
     pub fn record_quality(&mut self, validator: NodeId, quality: QualityScore) {
@@ -201,9 +201,9 @@ impl TrustGraph {
 
     /// Add vouching edge
     ///
-    /// Zasady:
-    /// - voucher musi mieć trust ≥ min_trust_to_vouch
-    /// - strength ≤ trust(vouchera)
+    /// Rules:
+    /// - voucher must have trust ≥ min_trust_to_vouch
+    /// - strength ≤ trust(voucher)
     pub fn add_vouch(&mut self, vouch: Vouch) -> bool {
         let voucher_trust = self.get_trust(&vouch.voucher);
         if voucher_trust < self.config.min_trust_to_vouch {
@@ -249,22 +249,22 @@ impl TrustGraph {
             sum = sum.saturating_add(contrib);
         }
 
-        // Cap do 1.0
+        // Cap to 1.0
         qclamp01(sum)
     }
 
     /// Compute work trust component W(v) ∈ [0, ONE_Q]
     ///
-    /// Jakość z ostatniej epoki (Golden Trio)
+    /// Quality from last epoch (Golden Trio)
     pub fn compute_work_trust(&self, validator: &NodeId) -> Q {
         *self.last_quality.get(validator).unwrap_or(&0)
     }
 
-    /// Krzywa S: S(x) = 3x² − 2x³ dla x ∈ [0,1] (Q32.32)
+    /// S-curve: S(x) = 3x² − 2x³ for x ∈ [0,1] (Q32.32)
     ///
-    /// - rosnąca, gładka,
+    /// - monotonic increasing, smooth,
     /// - T(0)=0, T(1)=1,
-    /// - daje „łagodne" nasycanie na górze (bardziej miękko niż linia).
+    /// - gives "soft" saturation at top (softer than linear).
     fn q_scurve(x: Q) -> Q {
         let x = qclamp01(x);
         let x2 = qmul(x, x);     // x²
@@ -276,7 +276,7 @@ impl TrustGraph {
         three_x2.saturating_sub(two_x3).min(ONE_Q)
     }
 
-    /// Update trust for validator (main algorithm, PRO wersja)
+    /// Update trust for validator (main algorithm, PRO version)
     ///
     /// Z_lin = β₁·H + β₂·V + β₃·W
     /// T     = S(Z_lin)
@@ -302,7 +302,7 @@ impl TrustGraph {
         trust
     }
 
-    /// Update all validators' trust (np. na koniec epoki)
+    /// Update all validators' trust (e.g. at end of epoch)
     pub fn update_all(&mut self, validators: &[NodeId]) {
         for validator in validators {
             self.update_trust(*validator);
@@ -361,10 +361,10 @@ impl TrustGraph {
     }
 }
 
-/// Bootstrap nowego walidatora z vouchingiem.
+/// Bootstrap new validator with vouching.
 ///
-/// `vouchers`: lista (voucher, strength) w Q.
-/// Zwraca początkowy trust nowego walidatora.
+/// `vouchers`: list of (voucher, strength) in Q.
+/// Returns initial trust of new validator.
 pub fn bootstrap_validator(
     graph: &mut TrustGraph,
     new_validator: NodeId,

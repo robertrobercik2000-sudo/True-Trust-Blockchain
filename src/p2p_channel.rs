@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
-//! Rdzeń PQ-secure kanału P2P:
-//! - KDF: 2 klucze sesji z KEM shared_secret + transcript_hash,
-//! - XChaCha20-Poly1305: osobny klucz na send / recv,
-//! - liczniki nonce'ów (u64) per kierunek – brak reuse nonców.
+//! Core PQ-secure P2P channel:
+//! - KDF: 2 session keys from KEM shared_secret + transcript_hash,
+//! - XChaCha20-Poly1305: separate key for send / recv,
+//! - nonce counters (u64) per direction – no nonce reuse.
 //!
-//! Ten moduł NIE robi handshake'u sieciowego – tylko kryptografię kanału.
+//! This module does NOT do network handshake – only channel cryptography.
 
 use anyhow::{anyhow, Result};
 use chacha20poly1305::{
@@ -16,12 +16,12 @@ use zeroize::Zeroize;
 
 use crate::crypto::kmac as ck;
 
-/// 32-bajtowy hash transkryptu handshake'u.
+/// 32-byte hash of handshake transcript.
 pub type TranscriptHash = [u8; 32];
 
-/// Symetryczny klucz sesji do XChaCha20-Poly1305.
+/// Symmetric session key for XChaCha20-Poly1305.
 ///
-/// Uwaga: pamięć jest zerowana w Drop.
+/// Note: memory is zeroized on Drop.
 #[derive(Clone, Zeroize)]
 #[zeroize(drop)]
 pub struct SessionKey(pub [u8; 32]);
@@ -32,13 +32,13 @@ impl SessionKey {
     }
 }
 
-/// Z KEM shared_secret + transcript_hash wyprowadza dwa klucze:
-/// - k_c2s: klient → serwer
-/// - k_s2c: serwer → klient
+/// Derives two keys from KEM shared_secret + transcript_hash:
+/// - k_c2s: client → server
+/// - k_s2c: server → client
 ///
-/// Użyj:
-/// - po stronie klienta: send = k_c2s, recv = k_s2c
-/// - po stronie serwera: send = k_s2c, recv = k_c2s
+/// Use:
+/// - on client side: send = k_c2s, recv = k_s2c
+/// - on server side: send = k_s2c, recv = k_c2s
 pub fn derive_session_keys(
     shared_secret: &[u8],
     transcript_hash: &TranscriptHash,
@@ -63,10 +63,10 @@ pub fn derive_session_keys(
     (SessionKey(k_c2s), SessionKey(k_s2c))
 }
 
-/// Dwukierunkowy, PQ-secure kanał po handshake.
+/// Bidirectional, PQ-secure channel after handshake.
 ///
-/// - osobne klucze XChaCha20-Poly1305 dla send/recv,
-/// - liczniki nonce'ów per kierunek (u64 → 8 bajtów w 24B nonce).
+/// - separate XChaCha20-Poly1305 keys for send/recv,
+/// - nonce counters per direction (u64 → 8 bytes in 24B nonce).
 pub struct SecureChannel {
     aead_send: XChaCha20Poly1305,
     aead_recv: XChaCha20Poly1305,
@@ -75,9 +75,9 @@ pub struct SecureChannel {
 }
 
 impl SecureChannel {
-    /// Tworzy kanał z kluczy sesji:
-    /// - `send_key` – klucz do szyfrowania wychodzących,
-    /// - `recv_key` – klucz do odszyfrowywania przychodzących.
+    /// Creates channel from session keys:
+    /// - `send_key` – key for encrypting outgoing,
+    /// - `recv_key` – key for decrypting incoming.
     pub fn new(send_key: SessionKey, recv_key: SessionKey) -> Self {
         let aead_send = XChaCha20Poly1305::new(send_key.0.as_slice().into());
         let aead_recv = XChaCha20Poly1305::new(recv_key.0.as_slice().into());
@@ -90,8 +90,8 @@ impl SecureChannel {
         }
     }
 
-    /// Tworzy nonce z 64-bitowego licznika.
-    /// Pozostałe 16 bajtów zostawiamy na 0 – klucze są różne per kierunek, więc kolizji (key, nonce) nie ma.
+    /// Creates nonce from 64-bit counter.
+    /// Remaining 16 bytes left at 0 – keys differ per direction, so no (key, nonce) collision.
     #[inline]
     fn make_nonce(counter: u64) -> XNonce {
         let mut n = [0u8; 24];
@@ -99,7 +99,7 @@ impl SecureChannel {
         *XNonce::from_slice(&n)
     }
 
-    /// Szyfrowanie wiadomości (send → peer).
+    /// Encrypt message (send → peer).
     pub fn encrypt(&mut self, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
         let ctr = self
             .send_ctr
@@ -118,7 +118,7 @@ impl SecureChannel {
         Ok(ct)
     }
 
-    /// Odszyfrowanie wiadomości (recv ← peer).
+    /// Decrypt message (recv ← peer).
     pub fn decrypt(&mut self, ciphertext: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
         let ctr = self
             .recv_ctr

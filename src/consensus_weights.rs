@@ -1,39 +1,39 @@
 #![forbid(unsafe_code)]
 
-//! Deterministyczne wagi walidatorów dla konsensusu PRO.
+//! Deterministic validator weights for PRO consensus.
 //!
-//! Zero `f64`. Wszystko w Q32.32 + prostych integerach.
+//! Zero `f64`. Everything in Q32.32 + simple integers.
 //!
-//! Waga = w_trust * T + w_quality * Q + w_stake * S
-//! gdzie T, Q, S ∈ [0, 1] jako Q32.32, a w_* to małe całkowite współczynniki.
+//! Weight = w_trust * T + w_quality * Q + w_stake * S
+//! where T, Q, S ∈ [0, 1] as Q32.32, and w_* are small integer coefficients.
 
 use sha3::{Digest, Sha3_256};
 
 use crate::node_id::NodeId;
 use crate::rtt_pro::Q;
 
-/// Waga w konsensusie (większa → większa szansa na lidera / większy wpływ na fork-choice).
+/// Weight in consensus (higher → better chance of leader / more fork-choice influence).
 pub type Weight = u128;
 
-/// Stałe wag (możesz je wyciągnąć do konfiga, jeśli chcesz).
-/// Tutaj przykładowo: trust ma największe znaczenie, potem ostatnia jakość, potem stake.
+/// Weight constants (can be pulled into config if desired).
+/// Example here: trust has most weight, then last quality, then stake.
 pub const W_TRUST: u128 = 4;
 pub const W_QUALITY: u128 = 2;
 pub const W_STAKE: u128 = 1;
 
-/// Prosta funkcja normalizująca Q32.32 do Weight.
+/// Simple function normalizing Q32.32 to Weight.
 #[inline]
 fn q_to_weight(x: Q) -> u128 {
     x as u128
 }
 
-/// Wylicza finalną wagę walidatora na potrzeby konsensusu.
+/// Computes final validator weight for consensus.
 ///
 /// - `trust_q`   – RTT trust T(v) ∈ [0,1] (Q32.32)
-/// - `quality_q` – ostatnia jakość z GOLDEN_TRIO ∈ [0,1] (Q32.32)
-/// - `stake_q`   – stake znormalizowany do [0,1] (Q32.32)
+/// - `quality_q` – last quality from GOLDEN_TRIO ∈ [0,1] (Q32.32)
+/// - `stake_q`   – stake normalized to [0,1] (Q32.32)
 ///
-/// Zwraca wartość porównywalną między walidatorami (Weight).
+/// Returns value comparable between validators (Weight).
 pub fn compute_final_weight_q(
     trust_q: Q,
     quality_q: Q,
@@ -48,12 +48,12 @@ pub fn compute_final_weight_q(
         + W_STAKE * s
 }
 
-/// Deterministyczny wybór lidera.
+/// Deterministic leader selection.
 ///
-/// - `beacon` – losowość z RandomX / VRF (Hash256 zakodowany jako [u8;32])
-/// - `validators` – lista `(NodeId, trust_q, quality_q, stake_q)`
+/// - `beacon` – randomness from RandomX / VRF (Hash256 encoded as [u8;32])
+/// - `validators` – list of `(NodeId, trust_q, quality_q, stake_q)`
 ///
-/// Uwaga: `beacon` używamy tylko do wymieszania wag w sposób deterministyczny.
+/// Note: `beacon` is only used to mix weights deterministically.
 pub fn select_leader_deterministic(
     beacon: [u8; 32],
     validators: &[(NodeId, Q, Q, Q)],
@@ -71,7 +71,7 @@ pub fn select_leader_deterministic(
             h.update(&w.to_be_bytes());
             let digest = h.finalize();
 
-            // Interpretujemy hash jako u128 (najmłodsze 16B) – im WYŻSZA wartość, tym lepiej.
+            // Interpret hash as u128 (lowest 16B) – HIGHER value is better.
             let mut score_bytes = [0u8; 16];
             score_bytes.copy_from_slice(&digest[16..32]);
             let score = u128::from_be_bytes(score_bytes);

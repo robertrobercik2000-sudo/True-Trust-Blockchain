@@ -4,7 +4,7 @@
 //!
 //! NodeId = SHAKE256("TT-NODE-ID.FALCON.v1" || falcon_pk_bytes)[0..32]
 //!
-//! Używane wszędzie jako identyfikator walidatora (RTT, konsensus, P2P).
+//! Used everywhere as validator identifier (RTT, consensus, P2P).
 
 use pqcrypto_falcon::falcon512;
 use pqcrypto_traits::sign::PublicKey as PQPublicKey;
@@ -13,12 +13,12 @@ use sha3::{
     Shake256,
 };
 
-/// Globalny identyfikator noda używany przez RTT / konsensus / P2P.
+/// Global node identifier used by RTT / consensus / P2P.
 ///
-/// To NIE jest klucz publiczny, tylko 32-bajtowy fingerprint.
+/// This is NOT a public key, just a 32-byte fingerprint.
 pub type NodeId = [u8; 32];
 
-/// Wylicza NodeId z klucza publicznego Falcon512.
+/// Computes NodeId from Falcon512 public key.
 pub fn node_id_from_falcon_pk(pk: &falcon512::PublicKey) -> NodeId {
     let mut h = Shake256::default();
     h.update(b"TT-NODE-ID.FALCON.v1");

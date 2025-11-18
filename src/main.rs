@@ -6,8 +6,8 @@
 //! - KDF: Argon2id z lokalnym pepperem
 //! - Shamir M-of-N secret sharing (na master32)
 //!
-//! Adresy:
-//!   - ttq: Shake256(Falcon_PK || MLKEM_PK) → 32B → Bech32m z prefixem "ttq"
+//! Addresses:
+//!   - ttq: Shake256(Falcon_PK || MLKEM_PK) → 32B → Bech32m with prefix "ttq"
 
 #![forbid(unsafe_code)]
 
@@ -42,7 +42,7 @@ use pqcrypto_traits::sign::{PublicKey as PQPublicKey, SecretKey as PQSecretKey};
 // Shamir
 use sharks::{Sharks, Share};
 
-// Nasze KMAC / KDF
+// Our KMAC / KDF
 use tt_priv_cli::crypto::kmac as ck;
 
 /* =========================================================================================
@@ -188,14 +188,14 @@ enum KdfKind {
     },
 }
 
-/// Sekretny payload portfela v5 (PQ-only)
+/// Secret payload of wallet v5 (PQ-only)
 #[derive(Clone, Serialize, Deserialize, Zeroize)]
 #[zeroize(drop)]
 struct WalletSecretPayloadV3 {
-    /// Główny seed (m.in. dla Shamir)
+    /// Master seed (used for Shamir, etc.)
     master32: [u8; 32],
 
-    /// Falcon512 SK/PK (bytes wg pqcrypto-falcon)
+    /// Falcon512 SK/PK (bytes per pqcrypto-falcon)
     falcon_sk_bytes: Vec<u8>,
     falcon_pk_bytes: Vec<u8>,
 
@@ -210,7 +210,7 @@ struct WalletFile {
     enc: Vec<u8>,
 }
 
-/// Zestaw kluczy PQ (już zmaterializowany z bytes)
+/// PQ keyset (materialized from bytes)
 #[derive(Clone)]
 pub struct Keyset {
     pub master32: [u8; 32],
@@ -258,7 +258,7 @@ fn bech32_addr_quantum_short(
     let mut d = [0u8; 32];
     rdr.read(&mut d);
 
-    // 0x03 = typ adresu PQ (możesz zmienić, ale trzymaj stałą)
+    // 0x03 = PQ address type (can be changed, but keep constant)
     let mut payload = Vec::with_capacity(33);
     payload.push(0x03);
     payload.extend_from_slice(&d);
@@ -865,7 +865,7 @@ fn cmd_wallet_init(
         wallet_id,
     };
 
-    // master + PQ klucze
+    // master + PQ keys
     let mut master32 = [0u8; 32];
     OsRng.fill_bytes(&mut master32);
     let (falcon_pk, falcon_sk) = falcon512::keypair();
@@ -920,7 +920,7 @@ fn cmd_wallet_export(
             Zeroizing::new(prompt_password("Type wallet password again to CONFIRM: ")?);
         let _ = decrypt_wallet_v3(&wf.enc, confirm.as_str(), &wf.header)?;
 
-        // Minimalny, prosty JSON z master32 + PQ SK
+        // Minimal, simple JSON with master32 + PQ SK
         let txt = format!(
             "{{\"version\":{},\"master32\":\"{}\",\"falcon_sk\":\"{}\",\"mlkem_sk\":\"{}\"}}\n",
             WALLET_VERSION,
@@ -1022,10 +1022,10 @@ fn cmd_wallet_rekey(
     Ok(())
 }
 
-/// Tworzy nowy, zaszyfrowany portfel z zadanego master32.
+/// Creates a new encrypted wallet from given master32.
 ///
-/// Uwaga: PQ klucze są generowane na nowo (jak przy init),
-/// więc adres po recovery z shardów będzie NOWY.
+/// Note: PQ keys are regenerated (as in init),
+/// so address after recovery from shards will be NEW.
 fn create_encrypted_wallet_from_master(
     master32: [u8; 32],
     use_argon2: bool,
@@ -1098,7 +1098,7 @@ fn create_encrypted_wallet_from_master(
         wallet_id,
     };
 
-    // Nowe PQ klucze (adres się zmieni)
+    // New PQ keys (address will change)
     let (falcon_pk, falcon_sk) = falcon512::keypair();
     let (mlkem_pk, mlkem_sk) = mlkem::keypair();
 

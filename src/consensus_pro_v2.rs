@@ -1,15 +1,15 @@
 #![forbid(unsafe_code)]
 
-//! TRUE_TRUST – Consensus PRO (PQ-only, deterministyczny)
+//! TRUE_TRUST – Consensus PRO (PQ-only, deterministic)
 //!
-//! Ten moduł spina:
+//! This module combines:
 //! - RTT PRO (`crate::rtt_pro`) – trust T(v) ∈ [0,1] (Q32.32),
-//! - „Golden Trio" quality (Q(v) ∈ [0,1] Q32.32 – zasilane z warstwy wykonawczej),
-//! - stake (S(v) – znormalizowany do [0,1] Q32.32),
-//! - deterministyczne wagi (`crate::consensus_weights`).
+//! - "Golden Trio" quality (Q(v) ∈ [0,1] Q32.32 – fed from execution layer),
+//! - stake (S(v) – normalized to [0,1] Q32.32),
+//! - deterministic weights (`crate::consensus_weights`).
 //!
-//! Zero `f64` w ścieżce konsensusu (leader selection, fork-choice). F64
-//! można używać tylko w funkcjach *_debug, które nie są używane na hot-path.
+//! Zero `f64` in consensus path (leader selection, fork-choice). F64
+//! can only be used in *_debug functions that aren't on hot-path.
 
 use std::collections::HashMap;
 
@@ -19,49 +19,49 @@ use crate::node_id::NodeId;
 use crate::rtt_pro::{q_from_f64, q_to_f64, Q, TrustGraph, TrustScore, RTTConfig, ONE_Q};
 use crate::consensus_weights::{compute_final_weight_q, select_leader_deterministic, Weight};
 
-/// Identyfikator slotu / rundy konsensusu.
+/// Slot / consensus round identifier.
 pub type Slot = u64;
 
-/// Identyfikator walidatora (alias na NodeId – tutaj dla czytelności).
+/// Validator identifier (alias for NodeId – for readability).
 pub type ValidatorId = NodeId;
 
-/// Prosty typ na liczbę „surowych" jednostek stake.
-/// To jest to, co zapisujesz w stanie (np. liczba TT-coins w bondingu).
+/// Simple type for number of "raw" stake units.
+/// This is what you store in state (e.g. number of TT-coins bonded).
 pub type StakeRaw = u128;
 
-/// Stan walidatora w konsensusie PRO.
+/// Validator state in PRO consensus.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidatorState {
-    /// PQ identyfikator (NodeId = fingerprint klucza Falcon).
+    /// PQ identifier (NodeId = Falcon key fingerprint).
     pub id: ValidatorId,
 
-    /// Surowy stake (np. liczba tokenów w bondingu).
+    /// Raw stake (e.g. number of bonded tokens).
     pub stake_raw: StakeRaw,
 
-    /// Stake przeskalowany do [0,1] jako Q32.32.
+    /// Stake rescaled to [0,1] as Q32.32.
     pub stake_q: Q,
 
-    /// Ostatnia jakość z Golden Trio (Q32.32, [0,1]).
+    /// Last quality from Golden Trio (Q32.32, [0,1]).
     pub quality_q: Q,
 
-    /// Ostatnio policzony trust RTT (T(v) ∈ [0,1] Q32.32).
+    /// Last computed RTT trust (T(v) ∈ [0,1] Q32.32).
     pub trust_q: TrustScore,
 }
 
-/// Główny obiekt konsensusu PRO.
+/// Main PRO consensus object.
 pub struct ConsensusPro {
-    /// RTT PRO – utrzymuje trust(v) na bazie historii i vouchingu.
+    /// RTT PRO – maintains trust(v) based on history and vouching.
     pub trust_graph: TrustGraph,
 
-    /// Walidatorzy w mapie po NodeId.
+    /// Validators in map by NodeId.
     validators: HashMap<ValidatorId, ValidatorState>,
 
-    /// Cache sumy stake dla normalizacji.
+    /// Cache of total stake for normalization.
     total_stake_raw: StakeRaw,
 }
 
 impl ConsensusPro {
-    /// Tworzy nową instancję z domyślną konfiguracją RTT.
+    /// Creates new instance with default RTT configuration.
     pub fn new_default() -> Self {
         let cfg = RTTConfig::default();
         Self::new(cfg)
@@ -75,26 +75,26 @@ impl ConsensusPro {
         }
     }
 
-    /// Rejestruje nowego walidatora z początkowym stake.
+    /// Registers new validator with initial stake.
     ///
-    /// Uwaga: nie sprawdzamy tu żadnych reguł ekonomicznych – to ma zrobić layer „staking".
+    /// Note: we don't check any economic rules here – that's for "staking" layer.
     pub fn register_validator(&mut self, id: ValidatorId, stake_raw: StakeRaw) {
         if self.validators.contains_key(&id) {
-            // re-register → tylko aktualizujemy stake_raw, reszta zostaje
+            // re-register → only update stake_raw, rest stays
             let v = self.validators.get_mut(&id).unwrap();
-            // aktualizuj total_stake_raw
+            // update total_stake_raw
             self.total_stake_raw = self
                 .total_stake_raw
                 .saturating_sub(v.stake_raw)
                 .saturating_add(stake_raw);
             v.stake_raw = stake_raw;
-            // stake_q zostanie przeliczone w `recompute_all_stake_q`
+            // stake_q will be recalculated in `recompute_all_stake_q`
             return;
         }
 
         self.total_stake_raw = self.total_stake_raw.saturating_add(stake_raw);
 
-        // stake_q policzymy przy normalizacji, quality/trust startują z 0
+        // stake_q computed at normalization, quality/trust start at 0
         let state = ValidatorState {
             id,
             stake_raw,
@@ -106,14 +106,14 @@ impl ConsensusPro {
         self.validators.insert(id, state);
     }
 
-    /// Usuwa walidatora (np. po unbondażu / karze).
+    /// Removes validator (e.g. after unbonding / slashing).
     pub fn remove_validator(&mut self, id: &ValidatorId) {
         if let Some(v) = self.validators.remove(id) {
             self.total_stake_raw = self.total_stake_raw.saturating_sub(v.stake_raw);
         }
     }
 
-    /// Aktualizuje surowy stake walidatora.
+    /// Updates raw stake of validator.
     pub fn update_stake_raw(&mut self, id: &ValidatorId, new_stake_raw: StakeRaw) {
         if let Some(v) = self.validators.get_mut(id) {
             self.total_stake_raw = self
@@ -124,13 +124,13 @@ impl ConsensusPro {
         }
     }
 
-    /// Przelicza stake_q dla wszystkich walidatorów na bazie total_stake_raw.
+    /// Recomputes stake_q for all validators based on total_stake_raw.
     ///
-    /// stake_q = min( stake_raw / total_stake_raw , 1.0 ) w Q32.32.
+    /// stake_q = min( stake_raw / total_stake_raw , 1.0 ) in Q32.32.
     pub fn recompute_all_stake_q(&mut self) {
         let total = self.total_stake_raw;
         if total == 0 {
-            // nikt nie ma stake – wszyscy 0
+            // nobody has stake – all 0
             for v in self.validators.values_mut() {
                 v.stake_q = 0;
             }
@@ -144,8 +144,8 @@ impl ConsensusPro {
         }
     }
 
-    /// Zapisuje jakość walidatora (Golden Trio) w danej epoce/slotcie
-    /// oraz update'uje wewnętrzny EWMA w RTT (history).
+    /// Records validator quality (Golden Trio) in given epoch/slot
+    /// and updates internal EWMA in RTT (history).
     ///
     /// `quality_q` ∈ [0, ONE_Q].
     pub fn record_quality(&mut self, id: &ValidatorId, quality_q: Q) {
@@ -155,13 +155,13 @@ impl ConsensusPro {
         }
     }
 
-    /// Wersja pomocnicza z f64 (tylko dla kodu analitycznego / tests).
+    /// Helper version with f64 (only for analytical code / tests).
     pub fn record_quality_f64(&mut self, id: &ValidatorId, quality_f64: f64) {
         let q = q_from_f64(quality_f64);
         self.record_quality(id, q);
     }
 
-    /// Liczy trust RTT dla pojedynczego walidatora, aktualizuje stan.
+    /// Computes RTT trust for single validator, updates state.
     pub fn update_validator_trust(&mut self, id: &ValidatorId) -> Option<TrustScore> {
         if !self.validators.contains_key(id) {
             return None;
@@ -174,7 +174,7 @@ impl ConsensusPro {
         Some(t)
     }
 
-    /// Aktualizuje trust dla całej listy walidatorów (np. na koniec epoki).
+    /// Updates trust for entire list of validators (e.g. at end of epoch).
     pub fn update_all_trust(&mut self) {
         let ids: Vec<_> = self.validators.keys().cloned().collect();
         self.trust_graph.update_all(&ids);
@@ -186,18 +186,18 @@ impl ConsensusPro {
         }
     }
 
-    /// Zwraca bieżący stan walidatora.
+    /// Returns current validator state.
     pub fn get_validator(&self, id: &ValidatorId) -> Option<&ValidatorState> {
         self.validators.get(id)
     }
 
-    /// Bieżąca waga walidatora w konsensusie (wg deterministycznej funkcji integerowej).
+    /// Current validator weight in consensus (per deterministic integer function).
     pub fn compute_validator_weight(&self, id: &ValidatorId) -> Option<Weight> {
         let v = self.validators.get(id)?;
         Some(compute_final_weight_q(v.trust_q, v.quality_q, v.stake_q))
     }
 
-    /// Zwraca ranking walidatorów według trust_q (tylko do debug / UI).
+    /// Returns validator ranking by trust_q (only for debug / UI).
     pub fn get_trust_ranking(&self) -> Vec<(ValidatorId, TrustScore)> {
         let mut out: Vec<_> = self
             .validators
@@ -208,7 +208,7 @@ impl ConsensusPro {
         out
     }
 
-    /// Zwraca ranking wag (Weight) – przydatne np. do wizualizacji siły walidatorów.
+    /// Returns weight ranking (Weight) – useful e.g. for visualizing validator strength.
     pub fn get_weight_ranking(&self) -> Vec<(ValidatorId, Weight)> {
         let mut out: Vec<_> = self
             .validators
@@ -222,9 +222,9 @@ impl ConsensusPro {
         out
     }
 
-    /// Wybór lidera dla danego beacona (RandomX/VRF) – deterministyczny.
+    /// Leader selection for given beacon (RandomX/VRF) – deterministic.
     ///
-    /// Uwaga: beacon to 32-bajtowy hash z warstwy losowości.
+    /// Note: beacon is a 32-byte hash from randomness layer.
     pub fn select_leader(&self, beacon: [u8; 32]) -> Option<ValidatorId> {
         let vals: Vec<_> = self
             .validators
@@ -234,7 +234,7 @@ impl ConsensusPro {
         select_leader_deterministic(beacon, &vals)
     }
 
-    /// Debug: zwraca trust / quality / stake jako f64 (TYLKO do UI / logów).
+    /// Debug: returns trust / quality / stake as f64 (ONLY for UI / logs).
     pub fn dump_debug_view(&self) -> Vec<(ValidatorId, f64, f64, f64)> {
         let mut out = Vec::new();
         for v in self.validators.values() {
