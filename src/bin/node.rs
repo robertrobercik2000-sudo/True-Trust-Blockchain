@@ -51,13 +51,8 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into())
-        )
-        .init();
+    // Simple logging (tracing removed to avoid extra dependencies)
+    eprintln!("🚀 TRUE_TRUST Node starting...");
 
     let cli = Cli::parse();
 
