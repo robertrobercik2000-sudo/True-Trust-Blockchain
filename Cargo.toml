@@ -99,7 +99,7 @@ pkg-config = "0.3"
 
 [[bin]]
 name = "tt_node"
-path = "src/bin/node_cli.rs"
+path = "src/bin/node.rs"
 
 [profile.release]
 opt-level = 3
