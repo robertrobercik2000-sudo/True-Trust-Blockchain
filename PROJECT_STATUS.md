@@ -1,326 +1,141 @@
-# Project Status - TRUE TRUST BLOCKCHAIN
-
-**Date:** 2025-11-09  
-**Version:** 0.1.0 (Research Prototype)  
-**Status:** ⚠️ **RESEARCH / PROOF-OF-CONCEPT**
-
----
-
-## ⚠️ IMPORTANT DISCLAIMER
-
-**THIS IS NOT PRODUCTION-READY CODE**
-
-This project is:
-- ✅ Research prototype demonstrating concepts
-- ✅ Educational implementation for grant application
-- ✅ Proof-of-concept for NLnet Foundation review
-- ❌ NOT audited for production use
-- ❌ NOT optimized for performance
-- ❌ NOT hardened against all attack vectors
-
-**DO NOT USE IN PRODUCTION WITHOUT:**
-1. External security audit
-2. Performance optimization
-3. Extensive testing (fuzzing, stress tests)
-4. Code review by cryptography experts
-5. Formal verification of critical paths
-
----
-
-## What Works (Conceptually)
-
-### ✅ Implemented Concepts:
-
-1. **Post-Quantum Cryptography**
-   - Falcon512 signatures (NIST PQC)
-   - Kyber768 KEM (NIST PQC)
-   - Working, but not optimized
-
-2. **STARK Zero-Knowledge Proofs**
-   - Goldilocks field (64-bit, production-grade)
-   - FRI protocol (basic implementation)
-   - ⚠️ Unoptimized (2-4s prove time)
-   - ⚠️ Large proofs (100-200 KB)
-   - ⚠️ Not hardened
-   - Note: BabyBear (31-bit) also available for testing
-
-3. **Proof-of-Trust Consensus**
-   - Weight formula: (2/3)T + (1/3)S
-   - RTT algorithm (Q32.32 fixed-point)
-   - Deterministic leader selection
-   - ⚠️ Not tested at scale
-   - ⚠️ May have edge cases
-
-4. **RandomX PoW**
-   - Monero-compatible FFI wrapper
-   - ⚠️ Requires external library
-   - ⚠️ Not tested in consensus
-
-5. **Private Transactions**
-   - STARK range proofs
-   - Kyber encryption
-   - ⚠️ Commitment binding (not fully tested)
-   - ⚠️ Stealth addresses (basic)
-
-6. **PQ-Secure P2P**
-   - 3-way handshake (Falcon + Kyber)
-   - XChaCha20-Poly1305 AEAD
-   - ⚠️ Not tested in real network
-   - ⚠️ May have race conditions
-
----
-
-## What Doesn't Work (Known Issues)
-
-### ❌ Known Limitations:
-
-1. **STARK Implementation (Goldilocks)**
-   ```
-   Issues:
-   - Unoptimized polynomial operations (slow)
-   - Large proof sizes (100-200 KB vs target 50-100 KB)
-   - Missing: proper constraint system
-   - Missing: batched verification
-   - Missing: recursive proofs
-   - Missing: FFT optimizations (Cooley-Tukey)
-   - Missing: parallel proving
-   ```
-
-2. **Consensus**
-   ```
-   Issues:
-   - Not tested with >2 validators
-   - Trust decay may have edge cases
-   - Slashing not fully implemented
-   - Fork choice needs work
-   ```
-
-3. **Networking**
-   ```
-   Issues:
-   - No DOS protection
-   - No peer discovery
-   - No gossip protocol optimization
-   - May have connection leaks
-   ```
-
-4. **Performance**
-   ```
-   Current (unoptimized Goldilocks):
-   - Block time: 15-20s (target: 5-10s)
-   - TPS: 3-7 (target: 20-50)
-   - STARK prove: 2-4s (target: 500ms-1s)
-   - STARK verify: 300-700ms (target: 100-200ms)
-   - Proof size: 100-200 KB (target: 50-100 KB)
-   - Memory usage: not profiled
-   ```
-
-5. **Testing**
-   ```
-   Coverage: 93% unit tests
-   Missing:
-   - Integration tests (multi-node)
-   - Stress tests (high load)
-   - Fuzzing (attack vectors)
-   - Network partition tests
-   - Byzantine behavior tests
-   ```
-
----
-
-## Security Audit Status
-
-### ⚠️ NO EXTERNAL AUDIT
-
-```
-Audited:     ❌ NO
-Reviewed:    ✓ Internal only
-Fuzzed:      ❌ NO
-Pen-tested:  ❌ NO
-Verified:    ❌ NO (formal methods)
-```
-
-**DO NOT DEPLOY WITHOUT AUDIT!**
-
----
-
-## Realistic Roadmap
-
-### Phase 1: Research (Current)
-**Status:** ✓ Complete
-- Proof-of-concept implementation
-- Core algorithms demonstrated
-- Documentation prepared
-
-### Phase 2: Grant Application (Q1 2025)
-**Status:** In Progress
-- NLnet Foundation submission
-- Community feedback
-- Initial review
-
-### Phase 3: Development (If Funded)
-**Duration:** 6-12 months
-- Code optimization
-- Security hardening
-- External audit
-- Bug fixes
-
-### Phase 4: Testnet (If Funded)
-**Duration:** 3-6 months
-- Deploy testnet
-- Community testing
-- Fix issues
-- Performance tuning
-
-### Phase 5: Production (If Successful)
-**Duration:** 6-12 months
-- Second security audit
-- Mainnet preparation
-- Formal verification
-- Launch
-
-**Total Timeline: 18-30 months (if funded)**
-
----
-
-## Code Quality Assessment
-
-### Strengths ✅
-
-- Clean architecture (modular design)
-- Good documentation (concepts explained)
-- PQC primitives (NIST-approved)
-- No unsafe code (`#![forbid(unsafe_code)]`)
-- Type safety (Rust ownership)
-- 93% test coverage (unit tests)
-
-### Weaknesses ⚠️
-
-- Unoptimized algorithms (STARK, consensus)
-- Limited real-world testing (no multi-node)
-- Performance not profiled
-- Some TODOs in critical paths
-- Error handling could be better
-- No fuzzing or formal verification
-
-### Critical Gaps ❌
-
-- NO external security audit
-- NO production optimization
-- NO at-scale testing
-- NO DOS mitigation
-- NO formal consensus proof
-- NO economic model validation
-
----
-
-## What Would "Production Ready" Require?
-
-### Technical Requirements:
-
-1. **Performance Optimization (3-6 months)**
-   - STARK: 2-4s → 500ms-1s prove time (Goldilocks)
-   - Proof size: 100-200 KB → 50-100 KB
-   - TPS: 3-7 → 20-50
-   - Implement FFT optimizations (Cooley-Tukey)
-   - Parallel proving (rayon)
-   - Memory profiling and optimization
-
-2. **Security Hardening (3-6 months)**
-   - External security audit
-   - Fuzzing all parsers
-   - DOS protection
-   - Rate limiting
-   - Network security
-
-3. **Testing (2-4 months)**
-   - Multi-node integration tests
-   - Byzantine behavior simulation
-   - Network partition recovery
-   - Stress testing (high load)
-   - Edge case coverage
-
-4. **Consensus Validation (2-3 months)**
-   - Formal safety proof
-   - Liveness proof
-   - Economic incentive analysis
-   - Game theory modeling
-
-5. **Code Quality (1-2 months)**
-   - Remove all TODOs
-   - Improve error handling
-   - Add metrics and monitoring
-   - Performance benchmarks
-
-**Total Effort: 11-21 months + funding**
-
----
-
-## Honest Assessment for NLnet
-
-### What This Project Demonstrates:
-
-✅ **Novel consensus mechanism** (PoT with trust-based selection)  
-✅ **Post-quantum cryptography** (Falcon, Kyber, STARK concepts)  
-✅ **Privacy features** (range proofs, encrypted TX)  
-✅ **Good architecture** (clean, modular, documented)  
-✅ **Research potential** (interesting ideas worth exploring)
-
-### What This Project Is NOT:
-
-❌ Production blockchain (requires 18-30 months work)  
-❌ Optimized implementation (STARK is slow)  
-❌ Audited code (no external review)  
-❌ Battle-tested (no real-world deployment)  
-❌ Ready for mainnet (needs extensive work)
-
-### Value Proposition:
-
-This project shows **promising research directions**:
-- Trust-based consensus (alternative to pure PoW/PoS)
-- Full PQC stack (ahead of Bitcoin/Ethereum)
-- Privacy by default (STARK range proofs)
-
-With proper funding and development, this could become a production blockchain in 2-3 years.
-
----
-
-## Recommendation for Users
-
-### ✅ Use This Project For:
-
-- Research and education
-- Understanding PoT consensus
-- Learning STARK concepts
-- Exploring PQC in blockchain
-- Grant application review
-
-### ❌ DO NOT Use For:
-
-- Production deployment
-- Real value storage
-- Critical applications
-- Mainnet operations
-- Any scenario requiring security guarantees
-
----
-
-## Contact for Issues
-
-**Email:** security@truetrust.blockchain  
-**GitHub:** Issues welcome for research feedback
-
-**Please DO NOT report production security issues** - this is research code!
-
----
-
-<p align="center">
-  <strong>⚠️ RESEARCH PROTOTYPE</strong><br>
-  <em>Not production-ready. Requires extensive work before mainnet.</em>
-</p>
-
----
-
-**Version:** 0.1.0-research  
-**Last Updated:** 2025-11-09  
-**Status:** Proof-of-Concept for Grant Application
+# Project Status
+
+**Last updated:** 2025-11-18
+
+## What Compiles
+
+✅ **Library** (`cargo build --lib`)  
+✅ **Wallet CLI** (`cargo build --bin tt_priv_cli`)  
+✅ **Node binary** (`cargo build --bin tt_node`) - basic structure only
+
+## What's Implemented
+
+### Wallet (Production-Grade)
+- ✅ Falcon512 + Kyber768 keypairs
+- ✅ Argon2id KDF with local pepper
+- ✅ AES-GCM-SIV / XChaCha20-Poly1305 encryption
+- ✅ Shamir M-of-N secret sharing (on master seed)
+- ✅ Bech32m addresses (`ttq` prefix)
+- ✅ Atomic file operations (fsync on parent dir)
+
+### Consensus (Research Implementation)
+- ✅ RTT PRO: Q32.32 fixed-point trust algorithm
+- ✅ EWMA history, vouching, S-curve smoothing
+- ✅ Deterministic validator weights (no floats)
+- ✅ Deterministic leader selection (SHA3-based)
+- ⚠️ No actual blockchain integration
+- ⚠️ No network consensus testing
+
+### Cryptography
+- ✅ KMAC256 (XOF, KDF, MAC)
+- ✅ KMAC-DRBG (deterministic RNG)
+- ✅ Falcon deterministic keygen (via `falcon_seeded` FFI, feature-gated)
+- ✅ P2P channel crypto (post-handshake only)
+- ❌ P2P handshake: incomplete
+- ❌ Full P2P network: not implemented
+
+### ZK Proofs
+- ⚠️ BabyBear STARK: educational only, not optimized
+- ⚠️ Goldilocks STARK: unoptimized, proof size ~100-200 KB
+- ⚠️ Winterfell v2: integrated but requires Rust 1.87+
+- ❌ No GPU acceleration
+- ❌ No batch verification
+- ❌ No proof aggregation
+
+### RandomX
+- ✅ FFI wrapper for Monero-compatible RandomX
+- ⚠️ Feature-gated (`randomx-ffi`), not required for wallet
+- ❌ Not integrated into consensus yet
+
+## Performance (Unoptimized)
+
+**STARK proving** (Goldilocks, no SIMD):
+- Prove time: ~2-4 seconds (64-bit range proof)
+- Verify time: ~200-500 ms
+- Proof size: ~100-200 KB
+
+**Wallet operations**:
+- Argon2id (512 MiB, 3 passes): ~1-2 seconds
+- Falcon512 sign: ~1 ms
+- Kyber768 encaps/decaps: <1 ms
+
+## Security Status
+
+❌ **No external security audit**  
+❌ **No formal verification**  
+❌ **No cryptanalysis**  
+❌ **No penetration testing**  
+❌ **No side-channel analysis**
+
+## Known Issues
+
+1. Winterfell STARK requires Rust 1.87+ (currently using 1.91.1)
+2. Some integration tests outdated (API changes in consensus modules)
+3. Node P2P networking incomplete
+4. No mempool implementation
+5. No actual fork-choice implementation
+6. STARK proofs not optimized (CPU-only, no parallelization)
+
+## Dependencies
+
+**Core:**
+- `pqcrypto-falcon` 0.3
+- `pqcrypto-kyber` 0.8
+- `sha3` 0.10
+- `aes-gcm-siv` 0.11
+- `chacha20poly1305` 0.10
+- `argon2` 0.5
+
+**Optional:**
+- `winterfell` 0.13.1 (feature: `winterfell_v2`)
+- `falcon_seeded` (local crate, feature: `seeded_falcon`)
+- RandomX C library (feature: `randomx-ffi`)
+
+## Build Requirements
+
+- Rust 1.91.1+ (for Winterfell integration)
+- Cargo
+- C compiler (for RandomX FFI, if enabled)
+- pkg-config (for RandomX FFI, if enabled)
+
+## What's NOT Done
+
+- ❌ Mainnet
+- ❌ Testnet
+- ❌ Block production
+- ❌ Transaction pool
+- ❌ Fork choice
+- ❌ State transitions
+- ❌ Slashing
+- ❌ Rewards distribution
+- ❌ P2P gossip protocol
+- ❌ Bootstrap/sync protocol
+- ❌ Wallet UI/UX
+- ❌ RPC API
+- ❌ Block explorer
+- ❌ Documentation (beyond code comments)
+
+## Roadmap (Realistic)
+
+This is a **research prototype**. Production deployment would require:
+
+1. **6-12 months**: Optimize STARK, implement full consensus
+2. **3-6 months**: Security audit (multiple firms)
+3. **3-6 months**: Testnet + bug fixes
+4. **3-6 months**: Formal verification of critical paths
+
+**Total: 18-30 months of funded development.**
+
+## Use Cases (Current)
+
+✅ Cryptographic research  
+✅ Algorithm prototyping  
+✅ Educational purposes  
+
+❌ Production deployments  
+❌ Real value storage  
+❌ Mainnet transactions  
+
+## Disclaimer
+
+**This is research code.** It has not been audited, formally verified, or tested in adversarial environments. Do not use for anything involving real value.
