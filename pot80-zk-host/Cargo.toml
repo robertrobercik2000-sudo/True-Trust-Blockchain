@@ -1,0 +1,12 @@
+[package]
+name = "pot80-zk-host"
+version = "0.1.0"
+edition = "2021"
+authors = ["TRUE_TRUST Team"]
+license = "Apache-2.0"
+description = "Stub implementation of pot80-zk-host for TRUE_TRUST blockchain"
+
+[dependencies]
+anyhow = "1.0"
+sha3 = "0.10"
+x25519-dalek = "2.0"

@@ -1,0 +1,35 @@
+# Rust build artifacts
+/target/
+**/target/
+Cargo.lock
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Sensitive files
+*.dat
+*.key
+*.pem
+/shards/
+/filters/
+/receipts/
+secrets.json
+
+# Test artifacts
+*.tmp
+*.bak
+
+# OS-specific
+Thumbs.db
+Desktop.ini
+
+# Pepper files (local encryption keys)
+.config/tt/pepper/
+
+# Documentation build artifacts
+/docs/.build/
