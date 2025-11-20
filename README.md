@@ -5,10 +5,17 @@ A post-quantum secure blockchain implementation with deterministic consensus and
 ## 🌟 Features
 
 - **Post-Quantum Cryptography**: Falcon-512 signatures and Kyber-768 key encapsulation
-- **Deterministic Consensus**: PRO consensus with trust, quality, and stake components
+- **Democratic Mining**: CPU-friendly RandomX (no ASICs), anyone can participate
+- **Trust-Based Consensus**: RTT (Relative Trust Time) - merit > capital
+- **Anti-Plutocratic**: Trust score rewards quality, not just wealth or hashrate
+- **Private Transactions**: Confidential amounts, STARK proofs, hidden balances
+- **PQ-Secure Messaging**: Built-in encrypted notes with Kyber channels
 - **Advanced Cryptography**: KMAC256, RandomX PoW, STARK/Winterfell ZK proofs
 - **Golden Trio Model**: Sophisticated validator quality assessment system
-- **Secure P2P**: Post-quantum secure communication channels
+
+**Better than Monero**: Privacy + Quantum resistance + Democratic consensus
+
+See [USE_CASE.md](USE_CASE.md) for detailed problem statement and solution architecture.
 
 ## 🏗️ Architecture
 
