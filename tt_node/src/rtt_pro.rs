@@ -26,6 +26,9 @@ use crate::node_id::NodeId;
 
 /// Q32.32 fixed-point
 pub type Q = u64;
+
+/// Alias for stake in Q format
+pub type StakeQ = Q;
 pub const ONE_Q: Q = 1u64 << 32;
 
 /// Trust score ∈ [0, ONE_Q]

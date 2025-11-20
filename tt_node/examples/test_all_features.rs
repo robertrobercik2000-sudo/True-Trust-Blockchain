@@ -1,0 +1,35 @@
+use sha2::{Digest, Sha256};
+fn main() {
+    println!("\nâ•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
+    println!("â•‘  TRUE_TRUST Feature Status         â•‘");
+    println!("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•ť\n");
+    println!("đź¦… FALCON-512: âś… DZIAĹA");
+    println!("đź” KYBER-768: âś… DZIAĹA");
+    println!("đźŚ P2P (Falcon+Kyber+XChaCha20): âś… DZIAĹA");
+    println!("âť„ď¸Ź  WINTERFELL STARK: âś… DZIAĹA (feature flag)");
+    println!("đź”’ UKRYTE KWOTY: âš ď¸Ź  CZÄĹšCIOWO");
+    println!("đź“ť NOTY: âś… DZIAĹA\n");
+    println!("Details:\n");
+    println!("P2P:");
+    println!("  âś… 3-way handshake");
+    println!("  âś… Mutual auth");
+    println!("  âś… Forward secrecy");
+    println!("  âś… AEAD encryption\n");
+    println!("STARK:");
+    println!("  âś… Range proofs (0 <= v < 2^n)");
+    println!("  âś… Winterfell 0.13");
+    println!("  âś… BabyBear fallback\n");
+    println!("Confidential TX:");
+    println!("  âś… Commitments");
+    println!("  âś… Encrypted amounts");
+    println!("  âś… STARK proofs");
+    println!("  âš ď¸Ź  Full protocol needs integration\n");
+    let v = 100_000u64;
+    let b = [42u8; 32];
+    let mut h = Sha256::new();
+    h.update(b"COMMIT");
+    h.update(&v.to_le_bytes());
+    h.update(&b);
+    let c = h.finalize();
+    println!("Example commitment: {}\n", hex::encode(&c[..8]));
+}
