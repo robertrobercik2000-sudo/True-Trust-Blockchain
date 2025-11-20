@@ -1,15 +1,10 @@
-[package]
-name = "true_trust_protocol"
-version = "0.1.0"
-edition = "2021"
-authors = ["TRUE_TRUST Team"]
-license = "Apache-2.0"
-description = "TRUE_TRUST Proof-of-Trust blockchain consensus protocol"
+[workspace]
+members = [
+    "tt_node",
+    "falcon_seeded"
+]
 
-[dependencies]
-serde = { version = "1.0", features = ["derive"] }
-sha3 = "0.10"  # Used for KMAC256 (SHAKE256)
-rand = { version = "0.8", features = ["std"] }
+resolver = "2"
 
 [profile.release]
 opt-level = 3
